@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Matura Polski 2026 — narzędzia do nauki</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body {
+  margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  background: linear-gradient(180deg, #fafaf9 0%, #f5f5f4 100%);
+  color: #1c1917; min-height: 100vh;
+}
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
+header { text-align: center; padding: 24px 0 32px; }
+h1 { margin: 0 0 6px 0; font-size: 32px; font-weight: 800; }
+.subtitle { color: #57534e; font-size: 15px; }
+
+.hero {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  color: white; border-radius: 16px; padding: 28px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: center;
+  margin-bottom: 24px;
+}
+@media (max-width: 700px) { .hero { grid-template-columns: 1fr; } }
+.hero .countdown { font-size: 64px; font-weight: 800; line-height: 1; }
+.hero .label { font-size: 14px; opacity: 0.95; margin-top: 4px; }
+.hero .info { font-size: 13px; }
+.hero .info p { margin: 4px 0; }
+
+.mode-bar {
+  background: white; border: 1px solid #e7e5e4; border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 20px;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.mode-pill { padding: 4px 12px; border-radius: 999px; background: #f5f5f4; font-size: 12px; font-weight: 600; }
+.mode-pill.ok { background: #ecfdf5; color: #065f46; }
+.mode-pill.warn { background: #fef3c7; color: #92400e; }
+.mode-pill.error { background: #fee2e2; color: #991b1b; }
+button {
+  font: inherit; padding: 6px 12px; border-radius: 6px;
+  border: 1px solid #e7e5e4; background: white; cursor: pointer; font-size: 12px;
+}
+button.primary { background: #3b82f6; color: white; border-color: #3b82f6; }
+button:hover { filter: brightness(0.96); }
+
+.tools-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px; margin-bottom: 24px;
+}
+.tool-card {
+  background: white; border: 1px solid #e7e5e4; border-radius: 12px;
+  padding: 18px; text-decoration: none; color: inherit;
+  transition: all 0.15s; display: block;
+}
+.tool-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.08); border-color: #3b82f6; }
+.tool-card .icon { font-size: 36px; margin-bottom: 8px; }
+.tool-card h3 { margin: 0 0 6px 0; font-size: 16px; font-weight: 700; }
+.tool-card p { margin: 0 0 8px 0; font-size: 13px; color: #57534e; }
+.tool-card .meta { font-size: 11px; color: #78716c; }
+.tool-card.flagship { border-color: #3b82f6; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 70%); }
+
+.usage-modes {
+  background: white; border: 1px solid #e7e5e4; border-radius: 12px;
+  padding: 18px; margin-bottom: 20px;
+}
+.usage-modes h2 { margin: 0 0 10px 0; font-size: 16px; }
+.modes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.mode-card { padding: 12px; background: #fafaf9; border-radius: 8px; font-size: 13px; }
+.mode-card h4 { margin: 0 0 6px 0; font-size: 13px; font-weight: 700; }
+.mode-card .badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; margin-bottom: 4px; }
+.badge.web { background: #dbeafe; color: #1e3a8a; }
+.badge.cowork { background: #d1fae5; color: #065f46; }
+.badge.code { background: #fce7f3; color: #831843; }
+
+.footer { text-align: center; color: #78716c; font-size: 11px; padding: 20px; }
+.footer a { color: #3b82f6; }
+
+code { background: #f5f5f4; padding: 1px 6px; border-radius: 3px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>📚 Matura Polski 2026</h1>
+  <div class="subtitle">Komplet 4 interaktywnych narzędzi do nauki — działają w przeglądarce, Cowork, Claude.ai oraz Claude Code</div>
+</header>
+
+<div class="hero">
+  <div>
+    <div class="countdown" id="countdown-num">—</div>
+    <div class="label" id="countdown-label">do matury</div>
+  </div>
+  <div class="info">
+    <p><strong>📅 Matura pisemna:</strong> 5 maja 2026, 9:00</p>
+    <p><strong>⏱ Czas:</strong> 240 min, 70 pkt (zadania + rozprawka)</p>
+    <p><strong>🗣 Matura ustna:</strong> maj/czerwiec 2026, 30 pkt</p>
+    <p><strong>🎯 Próg zdawalności:</strong> 30%</p>
+  </div>
+</div>
+
+<div class="mode-bar">
+  <div>
+    <strong>Tryb inferencji:</strong> <span class="mode-pill" id="mode-pill">—</span>
+  </div>
+  <div>
+    <button id="set-key-btn">🔑 Ustaw klucz API</button>
+    <button id="clear-key-btn">🗑 Wyczyść klucz</button>
+  </div>
+</div>
+
+<div class="tools-grid">
+
+  <a class="tool-card flagship" href="rozprawka.html">
+    <div class="icon">📝</div>
+    <h3>Rozprawka Scaffolder</h3>
+    <p>5-akapitowy scaffold rozprawki CKE. Live word counter, autosave, ocena 35-pkt przez Claude.</p>
+    <div class="meta">Część 2 pisemna · ~35 pkt · Claude (any model)</div>
+  </a>
+
+  <a class="tool-card" href="fiszki.html">
+    <div class="icon">🃏</div>
+    <h3>Fiszki Matura</h3>
+    <p>~63 fiszki (epoki, motywy, środki, daty, cytaty). Spaced repetition, calibration, "wytłumacz Haiku".</p>
+    <div class="meta">Powtórki · SM-2 lite · localStorage</div>
+  </a>
+
+  <a class="tool-card" href="egzaminator.html">
+    <div class="icon">🎓</div>
+    <h3>Egzaminator Ustny</h3>
+    <p>Symulacja ustnego CKE. Timer 15+10 min, komisja 3 osobowości, ocena 30-pkt.</p>
+    <div class="meta">Ustny · 30 pkt · Tryby easy/medium/hard</div>
+  </a>
+
+  <a class="tool-card" href="dashboard.html">
+    <div class="icon">📊</div>
+    <h3>Dashboard</h3>
+    <p>Centralny widok: countdown, drabina stresu, wykresy postępu, plan na dziś.</p>
+    <div class="meta">Orientacja · Chart.js · Czyta state z fiszek</div>
+  </a>
+
+</div>
+
+<div class="usage-modes">
+  <h2>🚀 3 sposoby użycia tego repo</h2>
+  <div class="modes-grid">
+    <div class="mode-card">
+      <span class="badge web">WEB</span>
+      <h4>Przeglądarka (GitHub Pages)</h4>
+      Otwierasz tę stronę, ustawiasz klucz API Anthropic i klikasz dowolne narzędzie. Wszystko działa client-side, tylko wywołania do api.anthropic.com idą bezpośrednio z Twojej przeglądarki.
+    </div>
+    <div class="mode-card">
+      <span class="badge cowork">COWORK</span>
+      <h4>Claude Cowork (desktop)</h4>
+      Sklonuj repo, otwórz folder w Cowork. Artifacty automatycznie używają <code>window.cowork.sample()</code> (Haiku, billing z Twojego planu).
+    </div>
+    <div class="mode-card">
+      <span class="badge code">CODE</span>
+      <h4>Claude Code (CLI)</h4>
+      Sklonuj repo, otwórz w VS Code z Claude Code. Wbudowany agent korzysta z vault (folder <code>vault/</code>) jako bazy wiedzy. Czytaj <code>CLAUDE.md</code> dla instrukcji rola korepetytora.
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Matura Polski 2026 · MIT License · <a href="https://github.com/" target="_blank">GitHub repo</a><br>
+  Dane CKE 2023 (poziom podstawowy). Zawsze weryfikuj cke.gov.pl przed egzaminem.<br>
+  Confidence danych: 90% · Confidence implementacji: 85%
+</div>
+
+</div>
+
+<script src="shared/claude-api.js"></script>
+<script>
+const MATURA_DATE = new Date("2026-05-05T09:00:00+02:00");
+
+function fmtCountdown() {
+  const d = MATURA_DATE.getTime() - Date.now();
+  if (d < 0) return { num: "0", label: "PO MATURZE" };
+  const days = Math.floor(d / 86400000);
+  if (days >= 1) return { num: days, label: "dni do matury" };
+  const hours = Math.floor(d / 3600000);
+  return { num: hours, label: "godzin do matury" };
+}
+
+function renderMode() {
+  const mode = window.matura.detectMode();
+  const label = window.matura.getModeLabel();
+  const pill = document.getElementById("mode-pill");
+  pill.textContent = label;
+  pill.className = "mode-pill " + (mode === "browser" && !window.matura.getApiKey() ? "error" : (mode === "cowork" ? "warn" : "ok"));
+  document.getElementById("clear-key-btn").style.display = window.matura.getApiKey() ? "" : "none";
+}
+
+function renderCountdown() {
+  const c = fmtCountdown();
+  document.getElementById("countdown-num").textContent = c.num;
+  document.getElementById("countdown-label").textContent = c.label;
+}
+
+document.getElementById("set-key-btn").addEventListener("click", () => {
+  window.matura.showApiKeyModal(renderMode);
+});
+document.getElementById("clear-key-btn").addEventListener("click", () => {
+  if (confirm("Usunąć klucz API z tej przeglądarki?")) {
+    window.matura.clearApiKey();
+    renderMode();
+  }
+});
+
+renderMode();
+renderCountdown();
+setInterval(renderCountdown, 60000);
+</script>
+</body>
+</html>

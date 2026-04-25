@@ -1,0 +1,476 @@
+<!doctype html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Egzaminator Ustny Matura",
+  "schemaVersion": 1,
+  "description": "Symulacja egzaminu ustnego z matury polskiej 2026. Losuje zestaw 2 pytań (1 jawne z listy CKE + 1 niejawne wygenerowane przez Haiku). Timer 15 min przygotowania + 10 min wypowiedzi. Komisja przez window.cowork.sample (Haiku) — 3 osobowości (życzliwy/sceptyczny/ciekawski). Tryb Hard z pełną presją czasu. Ocena 30-pkt wg kryteriów CKE."
+}
+</script>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Egzaminator Ustny — Matura</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: #fafaf9; color: #1c1917; font-size: 14px; line-height: 1.5; }
+.container { max-width: 800px; margin: 0 auto; padding: 12px; padding-bottom: 60px; }
+header { position: sticky; top: 0; z-index: 30; background: white; border-bottom: 1px solid #e7e5e4; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+.title { font-weight: 700; font-size: 16px; }
+.timer-display { font-family: monospace; font-size: 24px; font-weight: 700; padding: 6px 14px; border-radius: 8px; background: #f5f5f4; }
+.timer-display.danger { background: #fee2e2; color: #991b1b; animation: pulse 1s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+.score-pill { padding: 6px 12px; border-radius: 999px; background: #ecfdf5; color: #065f46; font-weight: 600; }
+
+.scene { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; padding: 24px; border-radius: 12px; margin-bottom: 16px; }
+.scene h2 { margin: 0 0 8px 0; font-size: 18px; }
+.scene p { margin: 0 0 6px 0; font-size: 14px; opacity: 0.95; }
+.scene .commission { display: flex; gap: 12px; margin-top: 12px; }
+.examiner { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; flex: 1; font-size: 12px; }
+.examiner .name { font-weight: 700; }
+
+.kartka { background: #fefcf3; border: 2px dashed #92400e; border-radius: 12px; padding: 24px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); position: relative; }
+.kartka::before { content: "📜 ZESTAW EGZAMINACYJNY"; position: absolute; top: -12px; left: 16px; background: white; padding: 0 8px; font-size: 11px; color: #92400e; font-weight: 700; letter-spacing: 1px; }
+.kartka .pytanie { margin: 12px 0; padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #92400e; }
+.kartka .pytanie .label { font-size: 11px; color: #92400e; font-weight: 700; }
+.kartka .pytanie .body { font-size: 16px; font-weight: 500; margin-top: 4px; }
+
+.phase-box { background: white; border: 1px solid #e7e5e4; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+.phase-box h3 { margin: 0 0 8px 0; font-size: 14px; font-weight: 600; }
+
+.transcript { background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 8px; padding: 12px; max-height: 400px; overflow-y: auto; margin-bottom: 12px; }
+.message { margin: 8px 0; padding: 10px; border-radius: 8px; }
+.message.user { background: #dbeafe; }
+.message.user .who { color: #1e3a8a; }
+.message.commission { background: #f5f5f4; }
+.message.commission .who { color: #92400e; }
+.message .who { font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+.message .body { white-space: pre-wrap; font-size: 13px; }
+
+textarea { width: 100%; padding: 10px; font: inherit; border: 1px solid #e7e5e4; border-radius: 6px; min-height: 100px; resize: vertical; font-family: Georgia, serif; }
+textarea:focus { outline: none; border-color: #3b82f6; }
+
+button { border: none; cursor: pointer; font: inherit; padding: 8px 14px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: #3b82f6; color: white; }
+.btn-primary:hover:not(:disabled) { background: #2563eb; }
+.btn-secondary { background: #f5f5f4; color: #44403c; }
+.btn-secondary:hover:not(:disabled) { background: #e7e5e4; }
+.btn-success { background: #10b981; color: white; }
+.btn-danger { background: #f43f5e; color: white; }
+.btn-dark { background: #1c1917; color: white; }
+.btn-block { width: 100%; justify-content: center; padding: 14px; font-weight: 600; }
+
+.config-panel { background: #f5f5f4; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+.config-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.config-row label { font-size: 13px; min-width: 120px; }
+select { padding: 6px 10px; border: 1px solid #e7e5e4; border-radius: 6px; font: inherit; }
+
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.1); border-top-color: currentColor; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 16px; border-radius: 8px; background: #1c1917; color: white; font-size: 13px; z-index: 60; }
+.toast.error { background: #dc2626; }
+
+.score-card { background: white; border: 2px solid #3b82f6; border-radius: 12px; padding: 20px; margin-top: 16px; }
+.score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 12px 0; }
+.score-item { padding: 10px; background: #f5f5f4; border-radius: 6px; }
+.score-item .name { font-size: 12px; color: #57534e; }
+.score-item .pts { font-size: 18px; font-weight: 700; color: #1d4ed8; }
+.total-score { text-align: center; font-size: 48px; font-weight: 700; color: #1d4ed8; }
+
+.warning-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 10px 14px; border-radius: 4px; font-size: 13px; color: #78350f; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div style="background:#1c1917;color:white;padding:8px 14px;font-size:12px;display:flex;gap:14px;align-items:center;">
+  <a href="index.html" style="color:#93c5fd;text-decoration:none;font-weight:600;">← Matura 2026</a>
+  <a href="rozprawka.html" style="color:#d6d3d1;text-decoration:none;">📝 Rozprawka</a>
+  <a href="fiszki.html" style="color:#d6d3d1;text-decoration:none;">🃏 Fiszki</a>
+  <a href="egzaminator.html" style="color:#d6d3d1;text-decoration:none;">🎓 Ustny</a>
+  <a href="dashboard.html" style="color:#d6d3d1;text-decoration:none;">📊 Dashboard</a>
+  <span style="margin-left:auto;color:#a8a29e;font-size:11px;" id="matura-mode-indicator">—</span>
+</div>
+<header>
+  <div class="title">🎓 Egzaminator Ustny</div>
+  <div class="timer-display" id="timer">--:--</div>
+  <div class="score-pill" id="phase-pill">Setup</div>
+</header>
+
+<div class="container">
+  <div id="setup-area"></div>
+  <div id="game-area" style="display:none"></div>
+</div>
+
+<div id="toast-container"></div>
+
+
+<script src="shared/claude-api.js"></script>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  const ind = document.getElementById("matura-mode-indicator");
+  if (ind && window.matura) ind.textContent = "🤖 " + window.matura.getModeLabel();
+});
+</script>
+
+<script>
+const STORAGE_KEY = "egzaminator-ustny-v1";
+
+// Pytania jawne CKE 2026 — fragment z vault (rozszerz wg potrzeb)
+const PYTANIA_JAWNE = [
+  { id: 1, lektura: "Bogurodzica", pytanie: "Funkcja modlitwy w literaturze. Omów na podstawie Bogurodzicy i innych tekstów kultury." },
+  { id: 2, lektura: "Biblia", pytanie: "Motyw cierpienia w Biblii i jego literackie kontynuacje. Omów na wybranych przykładach." },
+  { id: 3, lektura: "Iliada", pytanie: "Etos rycerski. Omów na podstawie Iliady i innych tekstów kultury." },
+  { id: 4, lektura: "Antygona", pytanie: "Konflikt tragiczny — czy zawsze prowadzi do klęski? Omów na podstawie Antygony i innych dzieł." },
+  { id: 5, lektura: "Makbet", pytanie: "Władza jako pokusa i przekleństwo. Omów na podstawie Makbeta i innego dzieła." },
+  { id: 6, lektura: "Pieśni Kochanowskiego", pytanie: "Renesansowa wizja świata jako harmonijnego dzieła Boga. Omów na podstawie wybranych Pieśni." },
+  { id: 7, lektura: "Treny", pytanie: "Cierpienie po stracie dziecka. Omów na podstawie Trenów Kochanowskiego." },
+  { id: 8, lektura: "Skąpiec", pytanie: "Komedia obyczajowa jako krytyka wad. Omów na podstawie Skąpca Moliera." },
+  { id: 9, lektura: "Dziady cz. III", pytanie: "Bunt jako postawa wobec Boga. Omów na podstawie Wielkiej Improwizacji." },
+  { id: 10, lektura: "Dziady cz. III", pytanie: "Mesjanizm narodowy. Omów na podstawie Dziadów cz. III." },
+  { id: 11, lektura: "Pan Tadeusz", pytanie: "Soplicowo jako arkadia. Omów obraz dworu szlacheckiego w Panu Tadeuszu." },
+  { id: 12, lektura: "Pan Tadeusz", pytanie: "Patriotyzm w Panu Tadeuszu. Omów wybrane motywy." },
+  { id: 13, lektura: "Kordian", pytanie: "Polemika romantyków z mesjanizmem. Omów na podstawie Kordiana." },
+  { id: 14, lektura: "Konrad Wallenrod", pytanie: "Dylemat moralny bohatera. Omów na podstawie Konrada Wallenroda." },
+  { id: 15, lektura: "Lalka", pytanie: "Wokulski — bohater rozdarty. Pozytywista czy romantyk?" },
+  { id: 16, lektura: "Lalka", pytanie: "Społeczeństwo polskie po powstaniu styczniowym. Omów na podstawie Lalki." },
+  { id: 17, lektura: "Gloria victis", pytanie: "Pamięć o pokonanych — funkcja w literaturze. Omów na podstawie Gloria victis." },
+  { id: 18, lektura: "Wesele", pytanie: "Niemoc narodowa — diagnoza Wyspiańskiego. Omów na podstawie Wesela." },
+  { id: 19, lektura: "Chłopi", pytanie: "Wieś jako wartość kulturowa. Omów na podstawie Chłopów Reymonta." },
+  { id: 20, lektura: "Przedwiośnie", pytanie: "Dylematy ideowe młodego pokolenia po 1918. Omów na podstawie Przedwiośnia." },
+  { id: 21, lektura: "Ferdydurke", pytanie: "Forma i niedojrzałość — diagnoza Gombrowicza. Omów na podstawie Ferdydurke." },
+  { id: 22, lektura: "Opowiadania Borowskiego", pytanie: "Człowiek zlagrowany. Omów na podstawie Opowiadań Borowskiego." },
+  { id: 23, lektura: "Inny świat", pytanie: "Lager jako test człowieczeństwa. Omów na podstawie Innego świata Herlinga-Grudzińskiego." },
+  { id: 24, lektura: "Zdążyć przed Panem Bogiem", pytanie: "Reportaż jako gatunek literacki — sposób mówienia o Holokauście. Omów na podstawie Zdążyć przed Panem Bogiem." },
+  { id: 25, lektura: "Tango", pytanie: "Kryzys wartości i konflikt pokoleń. Omów na podstawie Tanga Mrożka." },
+  { id: 26, lektura: "Wiersze Miłosza", pytanie: "Pamięć i moralność po Holokauście. Omów na podstawie wybranych wierszy Miłosza." },
+  { id: 27, lektura: "Wiersze Herberta", pytanie: "Pan Cogito jako etyk. Omów na podstawie wierszy Herberta." },
+  { id: 28, lektura: "Wiersze Szymborskiej", pytanie: "Codzienność jako temat poezji. Omów na podstawie wierszy Szymborskiej." },
+  { id: 29, lektura: "Dżuma", pytanie: "Postawa wobec zła absolutnego. Omów na podstawie Dżumy Camusa." },
+  { id: 30, lektura: "1984", pytanie: "Totalitaryzm w literaturze. Omów na podstawie Roku 1984 Orwella." }
+];
+
+const KOMISJA = [
+  { id: "zycz", name: "Mgr Anna K.", style: "życzliwy", desc: "uśmiechnięta, spokojna" },
+  { id: "scep", name: "Dr Tomasz W.", style: "sceptyczny", desc: "marszczy brwi" },
+  { id: "ciek", name: "Prof. Maria L.", style: "ciekawski", desc: "robi notatki" }
+];
+
+const SYSTEM_PROMPT_KOMISJA = "Jesteś egzaminatorem z polskiego (matura 2026, ustny). Wcielasz się w rolę 1 z 3 nauczycieli komisji. Wypowiadaj się NATURALNIE, jak prawdziwy człowiek — krótko (1-3 zdania), z charakterem swojej roli. Nie streszczaj, dopytuj o konkrety. Po polsku, bez emoji.";
+
+// State
+let state = {
+  phase: "setup",  // setup | prep | speaking | qna | grading | done
+  difficulty: "medium",  // easy | medium | hard
+  zestaw: null,    // { jawne, niejawne }
+  prepStartAt: null,
+  prepDurationMs: 15 * 60 * 1000,  // 15 min
+  speechStartAt: null,
+  speechDurationMs: 10 * 60 * 1000,  // 10 min
+  transcript: [],  // [{ who, body, examinerStyle }]
+  currentInput: "",
+  loading: false,
+  grade: null,
+  privacyWarningSeen: false
+};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      state.privacyWarningSeen = !!p.privacyWarningSeen;
+    }
+  } catch (e) {}
+}
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      privacyWarningSeen: state.privacyWarningSeen
+    }));
+  } catch (e) {}
+}
+
+function showToast(msg, type) {
+  const c = document.getElementById("toast-container");
+  c.innerHTML = '<div class="toast ' + (type || "") + '">' + escHtml(msg) + '</div>';
+  setTimeout(() => c.innerHTML = "", 3500);
+}
+function escHtml(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+
+function renderHeader() {
+  const phaseLabels = { setup: "Setup", prep: "Przygotowanie", speaking: "Wypowiedź", qna: "Pytania komisji", grading: "Ocenianie", done: "Zakończono" };
+  document.getElementById("phase-pill").textContent = phaseLabels[state.phase];
+  const t = document.getElementById("timer");
+  let remaining = 0;
+  if (state.phase === "prep" && state.prepStartAt) {
+    remaining = Math.max(0, state.prepDurationMs - (Date.now() - state.prepStartAt));
+  } else if (state.phase === "speaking" && state.speechStartAt) {
+    remaining = Math.max(0, state.speechDurationMs - (Date.now() - state.speechStartAt));
+  } else {
+    t.textContent = "--:--"; t.classList.remove("danger"); return;
+  }
+  const m = Math.floor(remaining / 60000);
+  const s = Math.floor((remaining % 60000) / 1000);
+  t.textContent = String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+  if (remaining < 5 * 60 * 1000 && state.difficulty === "hard") t.classList.add("danger");
+  else t.classList.remove("danger");
+  if (remaining === 0) {
+    if (state.phase === "prep") { startSpeaking(); }
+    else if (state.phase === "speaking") { showToast("Czas wypowiedzi minął", "error"); }
+  }
+}
+
+function renderSetup() {
+  document.getElementById("setup-area").style.display = "block";
+  document.getElementById("game-area").style.display = "none";
+  document.getElementById("setup-area").innerHTML = `
+    <div class="warning-box">
+      <strong>⚠️ Ostrożnie:</strong> Egzaminator korzysta z Claude Haiku (window.cowork.sample), który jest słabszy w analizie literackiej niż Sonnet. Dla pełnej kalibracji oceny — ćwicz głośno SAMODZIELNIE z nagranym minutnikiem, a oceny Haiku traktuj orientacyjnie.
+    </div>
+    <div class="config-panel">
+      <h3 style="margin: 0 0 12px 0;">⚙️ Konfiguracja symulacji</h3>
+      <div class="config-row">
+        <label>Tryb trudności:</label>
+        <select id="diff-select">
+          <option value="easy">🟢 Easy (bez timera, łagodna komisja)</option>
+          <option value="medium" selected>🟡 Medium (timer, normalna komisja)</option>
+          <option value="hard">🔴 Hard (presja, surowa komisja, animowany timer)</option>
+        </select>
+      </div>
+      <div class="config-row">
+        <label>Zestaw:</label>
+        <span style="font-size: 13px; color: #57534e;">losowy: 1 pytanie jawne CKE + 1 niejawne (Haiku generuje)</span>
+      </div>
+      <button class="btn-primary btn-block" onclick="startSimulation()">🎫 Losuj zestaw i zaczynaj</button>
+    </div>
+    <div style="text-align: center; padding: 20px; color: #78716c; font-size: 13px;">
+      <p>📝 Symulacja składa się z 4 faz:</p>
+      <p><strong>1.</strong> Przygotowanie 15 min (czytasz pytanie, planujesz wypowiedź)<br>
+      <strong>2.</strong> Wypowiedź 10 min (mówisz lub piszesz, komisja milczy)<br>
+      <strong>3.</strong> Pytania komisji (3-4 pytania pogłębiające)<br>
+      <strong>4.</strong> Ocena 30 pkt wg kryteriów CKE</p>
+    </div>
+  `;
+}
+
+window.startSimulation = async function() {
+  state.difficulty = document.getElementById("diff-select").value;
+  if (!state.privacyWarningSeen) {
+    if (!confirm("Symulacja wysyła Twoje wypowiedzi do Anthropic (Haiku). Kontynuować?")) return;
+    state.privacyWarningSeen = true; saveState();
+  }
+  if (!window.matura || typeof window.matura.callClaude !== "function") {
+    showToast("Haiku niedostępny — otwórz w Cowork", "error"); return;
+  }
+  // Losowanie zestawu
+  const jawne = PYTANIA_JAWNE[Math.floor(Math.random() * PYTANIA_JAWNE.length)];
+  // Generuj niejawne przez Haiku
+  state.loading = true; renderGameArea("Generuję pytanie niejawne...");
+  try {
+    const niejawnePrompt = "Wygeneruj 1 pytanie ustnej matury z polskiego (formuła 2023, poz. podst.) typu 'pytanie niejawne'. Forma: krótki tekst (4-6 zdań — fragment publicystyki, eseju, cytat) + pytanie do interpretacji. Po polsku, jedno pytanie, bez wstępu. Bez Markdown.";
+    const niejawne = await window.matura.callClaude(niejawnePrompt);
+    state.zestaw = { jawne, niejawne };
+    state.transcript = [];
+    state.phase = "prep";
+    state.prepStartAt = state.difficulty === "easy" ? null : Date.now();
+    state.loading = false;
+    renderAll();
+  } catch (e) {
+    state.loading = false;
+    showToast("Błąd generowania: " + e.message, "error"); renderSetup();
+  }
+};
+
+window.startSpeaking = function() {
+  state.phase = "speaking";
+  state.speechStartAt = state.difficulty === "easy" ? null : Date.now();
+  renderAll();
+};
+
+window.endSpeaking = function() {
+  state.phase = "qna";
+  if (state.transcript.length === 0 || state.currentInput.trim()) {
+    if (state.currentInput.trim()) {
+      state.transcript.push({ who: "user", body: state.currentInput.trim() });
+      state.currentInput = "";
+    }
+  }
+  // Komisja zadaje pierwsze pytanie
+  askCommissionQuestion();
+};
+
+async function askCommissionQuestion() {
+  if (state.loading) return;
+  const examiner = KOMISJA[state.transcript.filter(m => m.who === "commission").length % KOMISJA.length];
+  state.loading = true; renderGameArea();
+  try {
+    const lastUserSpeech = state.transcript.filter(m => m.who === "user").map(m => m.body).join("\n\n");
+    const prevQuestions = state.transcript.filter(m => m.who === "commission").map(m => m.body).join("\n");
+    const prompt = SYSTEM_PROMPT_KOMISJA + "\n\nWcielasz się w rolę: " + examiner.name + " (" + examiner.style + ", " + examiner.desc + ").\n\nZESTAW UCZNIA:\nPytanie jawne: " + state.zestaw.jawne.pytanie + "\nPytanie niejawne: " + state.zestaw.niejawne + "\n\nWYPOWIEDŹ UCZNIA:\n\"\"\"\n" + lastUserSpeech + "\n\"\"\"\n\nPOPRZEDNIE PYTANIA KOMISJI:\n" + (prevQuestions || "(brak)") + "\n\nZadaj 1 NOWE pytanie pogłębiające. Krótko (1-2 zdania), z charakterem twojej roli. Nie powtarzaj pytań.";
+    const q = await window.matura.callClaude(prompt);
+    state.transcript.push({ who: "commission", body: q, examinerStyle: examiner.style, examinerName: examiner.name });
+  } catch (e) {
+    showToast("Błąd komisji: " + e.message, "error");
+  } finally {
+    state.loading = false; renderGameArea();
+  }
+}
+
+window.submitAnswer = async function() {
+  const ta = document.getElementById("answer-input");
+  const text = ta.value.trim();
+  if (!text) return;
+  state.transcript.push({ who: "user", body: text });
+  ta.value = "";
+  state.currentInput = "";
+  // Po 3-4 pytaniach przejdź do oceny
+  const commissionCount = state.transcript.filter(m => m.who === "commission").length;
+  if (commissionCount >= 3) {
+    if (confirm("Przejść do oceny po " + commissionCount + " pytaniach?")) {
+      gradeFinal(); return;
+    }
+  }
+  await askCommissionQuestion();
+};
+
+window.gradeFinal = async function() {
+  state.phase = "grading";
+  state.loading = true; renderGameArea("Komisja ocenia (max 30 pkt)...");
+  try {
+    const transcript = state.transcript.map(m => (m.who === "user" ? "UCZEŃ: " : "KOMISJA: ") + m.body).join("\n\n");
+    const prompt = "Jesteś przewodniczącym komisji egzaminacyjnej (matura ustna z polskiego, formuła 2023, max 30 pkt).\n\nKRYTERIA CKE 2023 (matura ustna):\n1. Sprawność komunikacyjna (0-2): czy odpowiada na pytania, jasność wypowiedzi\n2. Sposób realizacji wypowiedzi monologowej (0-16): struktura, argumentacja, język literacki\n3. Sposób realizacji rozmowy (0-12): trafność i pogłębianie odpowiedzi na pytania komisji\n\nZESTAW:\nPytanie jawne: " + state.zestaw.jawne.pytanie + "\nPytanie niejawne: " + state.zestaw.niejawne + "\n\nTRANSKRYPCJA:\n\"\"\"\n" + transcript + "\n\"\"\"\n\nBądź SUROWY (lepiej 18/30 z precyzją niż 26/30 z grzeczności). Ocenę zwróć WYŁĄCZNIE jako valid JSON (bez fences):\n\n{\n  \"komunikacyjna\": { \"punkty\": 0-2, \"uzasadnienie\": \"1-2 zdania\" },\n  \"monolog\": { \"punkty\": 0-16, \"uzasadnienie\": \"3-4 zdania, cytuj fragmenty\" },\n  \"rozmowa\": { \"punkty\": 0-12, \"uzasadnienie\": \"2-3 zdania\" },\n  \"suma\": 0-30,\n  \"komentarz\": \"3-5 zdań\",\n  \"trzy_mocne\": [\"k1\",\"k2\",\"k3\"],\n  \"trzy_slabe\": [\"k1\",\"k2\",\"k3\"],\n  \"hak\": \"1-2 zdania - mnemonik na największy błąd\"\n}\n\nWALIDACJA: suma = sum(cząstkowe).";
+    const response = await window.matura.callClaude(prompt);
+    state.grade = parseGradeUstny(response);
+    state.phase = "done";
+  } catch (e) {
+    showToast("Błąd oceny: " + e.message, "error");
+    state.phase = "qna";
+  } finally {
+    state.loading = false; renderGameArea();
+  }
+};
+
+function parseGradeUstny(raw) {
+  let cleaned = raw.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+  let parsed;
+  try { parsed = JSON.parse(cleaned); }
+  catch (e) {
+    const m = cleaned.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("brak JSON");
+    parsed = JSON.parse(m[0]);
+  }
+  // Sanity check
+  const sumComputed = parsed.komunikacyjna.punkty + parsed.monolog.punkty + parsed.rozmowa.punkty;
+  if (Math.abs(sumComputed - parsed.suma) > 0.5) { parsed.suma = sumComputed; parsed._corrected = true; }
+  return parsed;
+}
+
+window.resetSim = function() {
+  if (!confirm("Reset symulacji?")) return;
+  state.phase = "setup"; state.zestaw = null; state.transcript = [];
+  state.prepStartAt = null; state.speechStartAt = null; state.grade = null;
+  renderAll();
+};
+
+function renderGameArea(loadingMsg) {
+  document.getElementById("setup-area").style.display = "none";
+  document.getElementById("game-area").style.display = "block";
+  const ga = document.getElementById("game-area");
+  let html = "";
+  // Scena (kontekst)
+  html += '<div class="scene"><h2>🎬 Sala 204, ' + new Date().toLocaleTimeString("pl-PL", {hour:"2-digit",minute:"2-digit"}) + '</h2><p>Wchodzisz, siadasz. Komisja przedstawia się:</p><div class="commission">';
+  KOMISJA.forEach(e => { html += '<div class="examiner"><div class="name">' + e.name + '</div><div>' + e.desc + '</div></div>'; });
+  html += '</div></div>';
+  // Kartka
+  if (state.zestaw) {
+    html += '<div class="kartka"><div class="pytanie"><div class="label">PYTANIE JAWNE (CKE 2026 — lektura: ' + state.zestaw.jawne.lektura + ')</div><div class="body">' + escHtml(state.zestaw.jawne.pytanie) + '</div></div>';
+    html += '<div class="pytanie"><div class="label">PYTANIE NIEJAWNE (Haiku)</div><div class="body">' + escHtml(state.zestaw.niejawne) + '</div></div></div>';
+  }
+  // Faza
+  if (state.phase === "prep") {
+    html += '<div class="phase-box"><h3>📋 Faza 1: Przygotowanie' + (state.difficulty !== "easy" ? ' (15 min)' : '') + '</h3><p style="font-size:13px;color:#57534e">Czytasz pytania, planujesz wypowiedź. Komisja czeka. Możesz robić notatki na brudnopisie. Gdy gotowy — przejdź do wypowiedzi.</p><button class="btn-primary btn-block" onclick="startSpeaking()">▶ Zaczynam mówić</button></div>';
+  } else if (state.phase === "speaking") {
+    html += '<div class="phase-box"><h3>🗣 Faza 2: Wypowiedź' + (state.difficulty !== "easy" ? ' (10 min)' : '') + '</h3><p style="font-size:13px;color:#57534e">Mów na temat zestawu. Komisja słucha (nie przerywa). Możesz pisać w polu poniżej (jako notatki / transkrypcja) lub mówić głośno.</p>';
+    html += '<textarea id="speech-input" placeholder="Tu spisz lub podsumuj swoją wypowiedź (5-10 min mówienia ≈ 600-1200 słów)..."></textarea>';
+    html += '<button class="btn-primary btn-block" onclick="finishSpeechAndQna()" style="margin-top:8px">✓ Skończyłem wypowiedź</button></div>';
+  } else if (state.phase === "qna" || state.phase === "grading" || state.phase === "done") {
+    html += '<div class="phase-box"><h3>💬 Faza 3: Pytania komisji</h3>';
+    if (state.transcript.length === 0) { html += '<p>(jeszcze brak pytań)</p>'; }
+    else {
+      html += '<div class="transcript">';
+      state.transcript.forEach(m => {
+        if (m.who === "user") html += '<div class="message user"><div class="who">TY</div><div class="body">' + escHtml(m.body) + '</div></div>';
+        else html += '<div class="message commission"><div class="who">' + (m.examinerName || "KOMISJA") + ' (' + (m.examinerStyle || "") + ')</div><div class="body">' + escHtml(m.body) + '</div></div>';
+      });
+      html += '</div>';
+    }
+    if (state.phase === "qna") {
+      if (state.loading) html += '<div style="text-align:center"><span class="spinner"></span> Komisja zastanawia się...</div>';
+      else {
+        html += '<textarea id="answer-input" placeholder="Twoja odpowiedź..."></textarea>';
+        html += '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn-primary" onclick="submitAnswer()">✉ Odpowiedz</button>';
+        if (state.transcript.filter(m => m.who === "commission").length >= 2) html += '<button class="btn-success" onclick="gradeFinal()">🏆 Zakończ — oceń</button>';
+        html += '</div>';
+      }
+    }
+  }
+  if (loadingMsg) {
+    html += '<div class="phase-box" style="text-align:center"><span class="spinner"></span> ' + escHtml(loadingMsg) + '</div>';
+  }
+  // Grade
+  if (state.grade && state.phase === "done") {
+    const g = state.grade;
+    html += '<div class="score-card"><div class="total-score">' + g.suma + '/30</div>';
+    html += '<div class="score-grid"><div class="score-item"><div class="name">Komunikacyjna</div><div class="pts">' + g.komunikacyjna.punkty + '/2</div><div style="font-size:11px;color:#57534e">' + escHtml(g.komunikacyjna.uzasadnienie) + '</div></div><div class="score-item"><div class="name">Monolog</div><div class="pts">' + g.monolog.punkty + '/16</div><div style="font-size:11px;color:#57534e">' + escHtml(g.monolog.uzasadnienie) + '</div></div><div class="score-item"><div class="name">Rozmowa</div><div class="pts">' + g.rozmowa.punkty + '/12</div><div style="font-size:11px;color:#57534e">' + escHtml(g.rozmowa.uzasadnienie) + '</div></div></div>';
+    html += '<div style="background:#f5f5f4;padding:12px;border-radius:6px;margin:8px 0"><strong>Komentarz:</strong> ' + escHtml(g.komentarz) + '</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0"><div style="background:#ecfdf5;padding:10px;border-radius:6px"><strong style="color:#065f46">✓ Mocne:</strong><ul style="margin:4px 0;padding-left:18px;font-size:12px">' + g.trzy_mocne.map(s => '<li>' + escHtml(s) + '</li>').join("") + '</ul></div><div style="background:#fef2f2;padding:10px;border-radius:6px"><strong style="color:#991b1b">⚠ Słabe:</strong><ul style="margin:4px 0;padding-left:18px;font-size:12px">' + g.trzy_slabe.map(s => '<li>' + escHtml(s) + '</li>').join("") + '</ul></div></div>';
+    html += '<div style="background:#eff6ff;padding:10px;border-radius:6px;margin-top:8px"><strong style="color:#1e3a8a">🧠 Hak:</strong> ' + escHtml(g.hak) + '</div>';
+    html += '<div style="font-size:11px;color:#78716c;margin-top:10px;font-style:italic">⚠️ Haiku ocenia łagodniej niż prawdziwa komisja CKE. Traktuj orientacyjnie. Dla pełnej kalibracji nagrywaj się na telefon i ćwicz głośno.</div>';
+    html += '<button class="btn-secondary btn-block" onclick="resetSim()" style="margin-top:12px">↻ Nowa symulacja</button></div>';
+  }
+  ga.innerHTML = html;
+}
+
+window.finishSpeechAndQna = async function() {
+  const ta = document.getElementById("speech-input");
+  if (ta && ta.value.trim()) {
+    state.transcript.push({ who: "user", body: ta.value.trim() });
+  }
+  state.phase = "qna";
+  await askCommissionQuestion();
+};
+
+function renderAll() {
+  if (state.phase === "setup") renderSetup();
+  else renderGameArea();
+  renderHeader();
+}
+
+setInterval(renderHeader, 1000);
+
+loadState();
+renderAll();
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined" || !window.matura) return;
+  const orig = window.matura.callClaude;
+  window.matura.callClaude = async function(prompt) {
+    try { return await orig(prompt); }
+    catch (e) {
+      if (e && (e.message === "MISSING_API_KEY" || e.message === "INVALID_API_KEY")) {
+        if (window.matura.showApiKeyModal) {
+          window.matura.showApiKeyModal(() => location.reload());
+        }
+      }
+      throw e;
+    }
+  };
+})();
+</script>
+
+</body>
+</html>

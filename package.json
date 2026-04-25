@@ -1,0 +1,28 @@
+{
+  "name": "matura-polski-2026",
+  "version": "1.0.0",
+  "description": "Komplet 4 narzędzi do nauki na maturę polską 2026 — działa w przeglądarce, Cowork, Claude Code",
+  "scripts": {
+    "test": "node tests/harness.js",
+    "serve": "python3 -m http.server 8080 --directory docs",
+    "serve:node": "npx serve docs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "matura",
+    "polski",
+    "polish-language",
+    "education",
+    "claude",
+    "anthropic",
+    "spaced-repetition",
+    "github-pages"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/[username]/matura-polski-2026.git"
+  }
+}

@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Design tokens for matura-polski-2026 v1, frozen 2026-04-25. Extracted from CSS in 4 production artifacts. Source files: docs/{rozprawka,fiszki,egzaminator,dashboard,index}.html",
+
+  "colors": {
+    "primary":         "#3b82f6",
+    "primary_hover":   "#2563eb",
+    "primary_deep":    "#1d4ed8",
+    "primary_deeper":  "#1e40af",
+    "primary_darkest": "#1e3a8a",
+    "text_primary":    "#1c1917",
+    "text_secondary":  "#44403c",
+    "text_muted":      "#57534e",
+    "text_subtle":     "#78716c",
+    "bg_base":         "#fafaf9",
+    "bg_card":         "#ffffff",
+    "bg_tile":         "#f5f5f4",
+    "border":          "#e7e5e4",
+    "border_muted":    "#d6d3d1",
+    "success_bg":      "#ecfdf5",
+    "success_border":  "#a7f3d0",
+    "success_text":    "#065f46",
+    "success_fill":    "#10b981",
+    "success_deep":    "#059669",
+    "warning_bg":      "#fef3c7",
+    "warning_border":  "#fde68a",
+    "warning_text":    "#92400e",
+    "warning_fill":    "#f59e0b",
+    "warning_deep":    "#78350f",
+    "danger_bg":       "#fef2f2",
+    "danger_bg_strong":"#fee2e2",
+    "danger_border":   "#fecaca",
+    "danger_text":     "#991b1b",
+    "danger_fill":     "#f43f5e",
+    "danger_deep":     "#dc2626",
+    "info_bg":         "#eff6ff",
+    "info_border":     "#bfdbfe",
+    "info_text":       "#1e40af",
+    "dark_nav_bg":     "#1c1917",
+    "dark_nav_text":   "#d6d3d1",
+    "dark_nav_link":   "#93c5fd",
+    "dark_nav_muted":  "#a8a29e",
+    "scene_grad_start":"#1e293b",
+    "scene_grad_end":  "#334155",
+    "kartka_bg":       "#fefcf3",
+    "kartka_border":   "#92400e"
+  },
+
+  "typography": {
+    "font_family_sans": "-apple-system, BlinkMacSystemFont, \"Segoe UI\", system-ui, sans-serif",
+    "font_family_serif": "Georgia, serif",
+    "font_family_mono": "monospace",
+    "sizes": {
+      "xs": "10px", "tiny": "11px", "sm": "12px", "base": "13px", "body": "14px",
+      "md": "15px", "lg": "16px", "xl": "18px", "2xl": "22px", "3xl": "24px",
+      "4xl": "32px", "5xl": "36px", "6xl": "48px", "7xl": "64px"
+    },
+    "weights": { "normal": 400, "medium": 500, "semibold": 600, "bold": 700, "extrabold": 800 },
+    "line_height_tight": 1.0,
+    "line_height_default": 1.5,
+    "line_height_heading": 1.4
+  },
+
+  "spacing": {
+    "base_unit": 8,
+    "scale": [2, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 30],
+    "card_padding": 14,
+    "modal_padding": 20,
+    "header_padding_y": 10,
+    "header_padding_x": 12,
+    "button_padding_y": 6,
+    "button_padding_x": 12
+  },
+
+  "breakpoints": {
+    "mobile_max": "700px",
+    "responsive_grid_min": "200px",
+    "responsive_grid_min_card": "260px",
+    "containers": {
+      "rozprawka_max": "1100px",
+      "fiszki_max":    "700px",
+      "egzaminator_max": "800px",
+      "dashboard_max": "1100px",
+      "index_max":     "1100px"
+    }
+  },
+
+  "border_radius": {
+    "small":  "4px",
+    "medium": "6px",
+    "large":  "8px",
+    "xl":     "10px",
+    "2xl":    "12px",
+    "3xl":    "16px",
+    "pill":   "999px"
+  },
+
+  "shadows": {
+    "card_hover":  "0 4px 12px rgba(0,0,0,0.05)",
+    "card_strong": "0 4px 12px rgba(0,0,0,0.06)",
+    "modal":       "0 4px 12px rgba(0,0,0,0.2)",
+    "tool_card":   "0 6px 16px rgba(0,0,0,0.08)",
+    "ladder_active": "0 2px 8px rgba(0,0,0,0.15)"
+  },
+
+  "transitions": {
+    "default":   "all 0.15s",
+    "spinner":   "0.8s linear infinite",
+    "fill_meter":"width 0.3s",
+    "pulse":     "1s infinite"
+  },
+
+  "storage_keys": {
+    "rozprawka":      "rozprawka-scaffolder-cowork-v1",
+    "fiszki":         "fiszki-matura-v1",
+    "egzaminator":    "egzaminator-ustny-v1",
+    "dashboard":      null,
+    "shared_api_key": "matura-anthropic-api-key",
+    "shared_model":   "matura-model"
+  },
+
+  "claude_models": {
+    "default":    "claude-sonnet-4-5",
+    "available":  ["claude-sonnet-4-5", "claude-opus-4-5", "claude-haiku-4-5"],
+    "claude_ai":  "claude-sonnet-4-5 (via window.claude.complete)",
+    "cowork":     "claude-haiku-4-5 (via window.cowork.sample)",
+    "browser":    "user-configurable (via fetch api.anthropic.com)",
+    "anthropic_version_header": "2023-06-01",
+    "browser_access_header":    "anthropic-dangerous-direct-browser-access"
+  },
+
+  "matura_constants": {
+    "DATE_ISO":           "2026-05-05T09:00:00+02:00",
+    "DATE_DESCRIPTION":   "5 maja 2026, 9:00 (CEST)",
+    "PISEMNA_DURATION_MIN": 240,
+    "PISEMNA_TOTAL_PKT":  70,
+    "PISEMNA_ZADANIA_PKT":35,
+    "PISEMNA_ROZPRAWKA_PKT": 35,
+    "USTNA_TOTAL_PKT":    30,
+    "USTNA_KOMUNIKACYJNA_PKT": 2,
+    "USTNA_MONOLOG_PKT":  16,
+    "USTNA_ROZMOWA_PKT":  12,
+    "PROG_ZDAWALNOSCI_PCT": 30,
+    "PROG_PISEMNA_PKT":   21,
+    "PROG_USTNA_PKT":     9,
+    "TOTAL_MIN_WORDS":    300,
+    "TARGET_WORDS_BUFFER":[320, 380],
+    "PYTANIA_JAWNE_TOTAL": 76,
+    "PYTANIA_JAWNE_W_ARTIFACT": 30,
+    "LECTURES_OBOWIAZKOWE_TOTAL": 40,
+    "LECTURES_W_ARTIFACT_ROZPRAWKA": 40,
+    "FISZKI_TOTAL": 63
+  },
+
+  "rozprawka_paragraph_limits": {
+    "intro":      { "min": 40, "max": 60,  "label": "Wstęp + teza" },
+    "arg1":       { "min": 80, "max": 110, "label": "Argument 1 (lektura główna)" },
+    "arg2":       { "min": 60, "max": 80,  "label": "Argument 2 (kontekst)" },
+    "arg3":       { "min": 60, "max": 80,  "label": "Argument 3 (kontekst)" },
+    "conclusion": { "min": 40, "max": 60,  "label": "Konkluzja" }
+  },
+
+  "rozprawka_budget": {
+    "limit": 45,
+    "window_ms": 18000000,
+    "window_human": "5h rolling",
+    "autosave_ms": 30000,
+    "inference_timeout_ms": 90000,
+    "min_words_for_critique": 30,
+    "min_topic_chars": 11,
+    "max_topic_chars": 500
+  },
+
+  "fiszki_sr_intervals_days": [0, 1, 3, 7, 14, 30],
+  "fiszki_max_level": 5,
+  "fiszki_weak_threshold": 0.5,
+  "fiszki_weak_min_attempts": 2,
+  "fiszki_confidence_options_pct": [25, 50, 75, 100],
+
+  "egzaminator_phases":     ["setup", "prep", "speaking", "qna", "grading", "done"],
+  "egzaminator_difficulties": ["easy", "medium", "hard"],
+  "egzaminator_komisja_styles": ["życzliwy", "sceptyczny", "ciekawski"],
+  "egzaminator_min_commission_questions": 3,
+  "egzaminator_prep_min": 15,
+  "egzaminator_speech_min": 10,
+  "egzaminator_timer_danger_threshold_ms": 300000,
+
+  "dashboard_phases": {
+    "low":    { "days_min": 10, "days_max": null, "label": "🟢 Tryb low" },
+    "medium": { "days_min": 6,  "days_max": 9,    "label": "🟡 Tryb medium" },
+    "high":   { "days_min": 3,  "days_max": 5,    "label": "🔴 Tryb high" },
+    "peak":   { "days_min": 1,  "days_max": 2,    "label": "🚨 Tryb peak" },
+    "off":    { "days_min": 0,  "days_max": 0,    "label": "🛌 MATURA DZIŚ" }
+  },
+  "dashboard_refresh_interval_ms": 60000,
+  "dashboard_chart_days": 14,
+  "dashboard_weak_top_n": 8,
+
+  "errors": {
+    "MISSING_API_KEY":   "Klucz API niewpisany.",
+    "INVALID_API_KEY":   "Klucz API odrzucony przez Anthropic (401).",
+    "RATE_LIMIT":        "Anthropic rate limit (429).",
+    "API_ERROR":         "Błąd API (other status).",
+    "INVALID_RESPONSE_SHAPE": "Anthropic zwrócił nieoczekiwany shape.",
+    "INVALID_GRADE_FORMAT":   "parseGrade nie sparsował.",
+    "MISSING_FIELD":     "parseGrade: brak required field.",
+    "INVALID_FIELD":     "parseGrade: typ pola niezgodny.",
+    "RANGE_ERROR":       "parseGrade: punkty poza dozwolonym range.",
+    "TIMEOUT":           "Inferencja timeout (90s, Rozprawka)",
+    "INFERENCE_UNAVAILABLE_OR_MISSING_KEY": "window.matura.callClaude niedostępne."
+  }
+}

@@ -1,0 +1,466 @@
+<!doctype html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Dashboard Matura Polski",
+  "schemaVersion": 1,
+  "description": "Centralny dashboard nauki na maturę polską 2026. Countdown do egzaminu, postęp z fiszek (Chart.js), drabina ekspozycji na stres (faza low/medium/high/peak), linki do pozostałych 3 artifactów, lista \"do powtórki dziś\" (czyta localStorage z fiszki-matura), banner \"raz/tydz. ręcznie\".",
+  "mcpTools": [],
+  "mcpServerNames": []
+}
+</script>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Matura Polski</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: #fafaf9; color: #1c1917; font-size: 14px; line-height: 1.5; }
+.container { max-width: 1100px; margin: 0 auto; padding: 16px; }
+h1 { margin: 0 0 4px 0; font-size: 22px; }
+.subtitle { color: #78716c; font-size: 13px; margin-bottom: 16px; }
+
+.hero { background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%); color: white; padding: 24px; border-radius: 12px; margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: center; }
+.countdown-big { font-size: 64px; font-weight: 800; line-height: 1; }
+.countdown-label { font-size: 14px; opacity: 0.9; margin-top: 4px; }
+.matura-info { font-size: 13px; opacity: 0.95; }
+.matura-info p { margin: 4px 0; }
+.urgent-now { background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); }
+
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 700px) { .row, .row-3 { grid-template-columns: 1fr; } .hero { grid-template-columns: 1fr; } }
+
+.card { background: white; border: 1px solid #e7e5e4; border-radius: 10px; padding: 16px; }
+.card h2 { margin: 0 0 8px 0; font-size: 14px; text-transform: uppercase; color: #57534e; letter-spacing: 0.5px; }
+.card .big { font-size: 32px; font-weight: 700; color: #1d4ed8; }
+.card .label { font-size: 12px; color: #78716c; }
+.card-link { text-decoration: none; color: inherit; display: block; transition: all 0.15s; }
+.card-link:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+
+.stress-ladder { background: white; border: 1px solid #e7e5e4; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+.stress-ladder h2 { margin: 0 0 12px 0; font-size: 14px; text-transform: uppercase; color: #57534e; letter-spacing: 0.5px; }
+.ladder-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.ladder-cell { padding: 12px 8px; border-radius: 8px; text-align: center; font-size: 12px; }
+.ladder-cell.active { font-weight: 700; transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.ladder-low { background: #ecfdf5; color: #065f46; }
+.ladder-medium { background: #fffbeb; color: #92400e; }
+.ladder-high { background: #fef3c7; color: #92400e; }
+.ladder-peak { background: #fee2e2; color: #991b1b; }
+.ladder-off { background: #f5f5f4; color: #44403c; }
+.ladder-cell .day-range { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+
+.banner { background: #fef3c7; border: 1px solid #fde68a; color: #78350f; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; font-size: 13px; }
+.banner.info { background: #dbeafe; border-color: #bfdbfe; color: #1e3a8a; }
+.banner strong { font-weight: 700; }
+
+.artifacts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.artifact-card { background: white; border: 1px solid #e7e5e4; border-radius: 10px; padding: 16px; transition: all 0.15s; }
+.artifact-card:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+.artifact-card .icon { font-size: 32px; margin-bottom: 6px; }
+.artifact-card h3 { margin: 0 0 4px 0; font-size: 15px; }
+.artifact-card p { margin: 0; font-size: 12px; color: #57534e; }
+
+.chart-wrap { position: relative; height: 240px; }
+
+.weak-list { list-style: none; padding: 0; margin: 0; }
+.weak-list li { padding: 8px 12px; background: #fef2f2; border-radius: 6px; margin-bottom: 6px; font-size: 13px; display: flex; justify-content: space-between; align-items: center; }
+.weak-list .acc { color: #991b1b; font-weight: 600; font-size: 12px; }
+.empty { text-align: center; padding: 20px; color: #78716c; font-size: 13px; }
+
+.tip-bar { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 10px 14px; border-radius: 4px; font-size: 13px; margin-bottom: 12px; }
+.tip-bar strong { color: #1e3a8a; }
+
+.footer { text-align: center; color: #78716c; font-size: 11px; padding: 20px; }
+</style>
+</head>
+<body>
+<div style="background:#1c1917;color:white;padding:8px 14px;font-size:12px;display:flex;gap:14px;align-items:center;">
+  <a href="index.html" style="color:#93c5fd;text-decoration:none;font-weight:600;">← Matura 2026</a>
+  <a href="rozprawka.html" style="color:#d6d3d1;text-decoration:none;">📝 Rozprawka</a>
+  <a href="fiszki.html" style="color:#d6d3d1;text-decoration:none;">🃏 Fiszki</a>
+  <a href="egzaminator.html" style="color:#d6d3d1;text-decoration:none;">🎓 Ustny</a>
+  <a href="dashboard.html" style="color:#d6d3d1;text-decoration:none;">📊 Dashboard</a>
+  <span style="margin-left:auto;color:#a8a29e;font-size:11px;" id="matura-mode-indicator">—</span>
+</div>
+<div class="container">
+
+  <h1>📚 Dashboard — Matura Polski 2026</h1>
+  <div class="subtitle">Centralny widok nauki: postęp, plan, linki do narzędzi</div>
+
+  <div class="hero" id="hero">
+    <div>
+      <div class="countdown-big" id="countdown-num">—</div>
+      <div class="countdown-label" id="countdown-label">do matury z polskiego</div>
+    </div>
+    <div class="matura-info">
+      <p><strong>📅 Data matury (pisemna):</strong> 5 maja 2026, 9:00</p>
+      <p><strong>⏱ Czas trwania:</strong> 240 min (4h)</p>
+      <p><strong>📝 Forma:</strong> rozprawka 35 pkt + zadania 35 pkt</p>
+      <p><strong>🎓 Próg zdawalności:</strong> 30% (~21 pkt z 70)</p>
+      <p id="phase-info"><strong>🎯 Faza nauki:</strong> —</p>
+    </div>
+  </div>
+
+  <div class="banner">
+    <strong>Pisanie ręczne ≠ klawiatura.</strong> Raz w tygodniu napisz pełną rozprawkę <strong>RĘCZNIE w 180 min</strong>, sfotografuj, wyślij do chatu. Motor memory budujesz tylko offline.
+  </div>
+
+  <div class="tip-bar">
+    <strong>💡 Tip dnia:</strong> <span id="tip-of-day">—</span>
+  </div>
+
+  <div class="row-3">
+    <div class="card">
+      <h2>Fiszki — zrobione dziś</h2>
+      <div class="big" id="cards-today">—</div>
+      <div class="label" id="cards-today-label">z localStorage fiszki-matura</div>
+    </div>
+    <div class="card">
+      <h2>Streak</h2>
+      <div class="big" id="streak-num">🔥 0</div>
+      <div class="label">dni z rzędu z aktywnością</div>
+    </div>
+    <div class="card">
+      <h2>Accuracy ogółem</h2>
+      <div class="big" id="acc-num">—</div>
+      <div class="label" id="acc-label">poprawnych / wszystkich</div>
+    </div>
+  </div>
+
+  <div class="stress-ladder">
+    <h2>📊 Drabina ekspozycji na stres (auto-tryb)</h2>
+    <div class="ladder-grid">
+      <div class="ladder-cell ladder-low" id="ladder-low">Low<div class="day-range">dni 13-10</div></div>
+      <div class="ladder-cell ladder-medium" id="ladder-medium">Medium<div class="day-range">dni 9-6</div></div>
+      <div class="ladder-cell ladder-high" id="ladder-high">High<div class="day-range">dni 5-3</div></div>
+      <div class="ladder-cell ladder-peak" id="ladder-peak">Peak<div class="day-range">dni 2-1</div></div>
+      <div class="ladder-cell ladder-off" id="ladder-off">OFF<div class="day-range">dzień 0</div></div>
+    </div>
+    <p style="font-size: 12px; color: #57534e; margin: 12px 0 0 0;" id="phase-recommendation">—</p>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h2>📈 Trend 14 dni — fiszki / dzień</h2>
+      <div class="chart-wrap"><canvas id="chart-fiszki"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>🎯 Pokrycie tagów (które tematy umiesz)</h2>
+      <div class="chart-wrap"><canvas id="chart-tags"></canvas></div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h2>⚠️ Słabe fiszki (do powtórki priorytet)</h2>
+      <ul class="weak-list" id="weak-list"></ul>
+    </div>
+    <div class="card">
+      <h2>📋 Plan na dziś (rekomendacja)</h2>
+      <ul style="margin:0;padding-left:20px;font-size:13px" id="today-plan"></ul>
+    </div>
+  </div>
+
+  <h2 style="margin: 20px 0 8px 0; font-size: 16px;">🛠 Twoje 4 narzędzia (wszystkie w Cowork)</h2>
+  <div class="artifacts-grid">
+    <div class="artifact-card">
+      <div class="icon">🃏</div>
+      <h3>Fiszki Matura</h3>
+      <p>Spaced repetition, ~63 fiszek (epoki, motywy, środki, daty, cytaty). Tryb "wytłumacz Haiku".</p>
+      <p style="margin-top:8px;font-size:11px;color:#78716c">id: <code>fiszki-matura</code></p>
+    </div>
+    <div class="artifact-card">
+      <div class="icon">📝</div>
+      <h3>Rozprawka Scaffolder</h3>
+      <p>5-akapitowy scaffold rozprawki CKE 35 pkt. Live word counter, pełna ocena Haiku, autosave.</p>
+      <p style="margin-top:8px;font-size:11px;color:#78716c">id: <code>rozprawka-scaffolder-matura</code></p>
+    </div>
+    <div class="artifact-card">
+      <div class="icon">🎓</div>
+      <h3>Egzaminator Ustny</h3>
+      <p>Symulacja ustnego z timerem 15+10 min. Komisja Haiku (3 osobowości), ocena 30 pkt.</p>
+      <p style="margin-top:8px;font-size:11px;color:#78716c">id: <code>egzaminator-ustny-matura</code></p>
+    </div>
+    <div class="artifact-card">
+      <div class="icon">📊</div>
+      <h3>Dashboard (TUTAJ)</h3>
+      <p>Centralny widok postępu. Countdown, drabina stresu, słabe obszary, plan na dziś.</p>
+      <p style="margin-top:8px;font-size:11px;color:#78716c">id: <code>dashboard-matura-polski</code></p>
+    </div>
+  </div>
+
+  <div class="banner info">
+    <strong>💎 Pełna jakość Sonnet:</strong> Cowork artifacty używają Haiku (szybki, ale słabszy w analizie literackiej).
+    Dla pełnej oceny CKE — otwórz Claude.ai z plikiem <code>rozprawka-scaffolder.jsx</code> w workspace folder.
+  </div>
+
+  <div class="footer">
+    Vault: <code>/Matura Polski/07-Artifacts/</code> · Dashboard nie zapisuje danych — czyta z localStorage innych artifactów<br>
+    Confidence prognoz: 85%. Pewność danych CKE: 90%. Weryfikuj cke.gov.pl przed maturą.
+  </div>
+</div>
+
+
+<script src="shared/claude-api.js"></script>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  const ind = document.getElementById("matura-mode-indicator");
+  if (ind && window.matura) ind.textContent = "🤖 " + window.matura.getModeLabel();
+});
+</script>
+
+<script>
+const MATURA_DATE = new Date("2026-05-05T09:00:00+02:00");
+const TIPS = [
+  "Cytat zawsze omów 1-2 zdaniami — surowy cytat = 0 pkt z elementów twórczych.",
+  "PEEL: Point → Evidence → Explain → Link. Każdy akapit argumentacyjny ma tę strukturę.",
+  "Tytuły lektur kursywą lub w cudzysłowie zawsze.",
+  "Konkluzja NIE może być kopią wstępu. Inne słowa, ta sama myśl.",
+  "Min 300 słów rozprawki. Pisz 320-380 dla bezpiecznego buforu.",
+  "Nie pisz 'autor chciał pokazać'. Mów: 'w utworze ukazany jest', 'tekst pokazuje'.",
+  "Kolokwializm = -1 styl. Słowa 'fajny', 'super', 'gość' zabraniają punktów.",
+  "Brak tezy = -2-3 pkt z realizacji tematu.",
+  "Streszczanie fabuły zamiast argumentowania = -5 pkt minimum.",
+  "1 lektura obowiązkowa CAŁOŚCIOWA + 2 konteksty krótsze = idealna proporcja.",
+  "Powtórzenia 'bohater', 'autor' = -styl. Używaj zamienników.",
+  "Refleksja końcowa ≠ moralizowanie. 'Każdy powinien' = źle.",
+  "Sprawdzaj: każdy akapit odpowiada na pytanie tematu? Jeśli nie — edytuj.",
+  "Pre-sleep review: 15-30 min przed snem powtórz najważniejsze fakty dnia. Konsoliduje pamięć.",
+  "Calibration: przed odpowiedzią zgadnij swój wynik (0-100%). Porównaj z rzeczywistością.",
+  "Interleaving > blocking: w sesji powtarzaj różne tematy mieszane, nie wszystko z 1 epoki."
+];
+
+function formatCountdown() {
+  const diff = MATURA_DATE.getTime() - Date.now();
+  const d = 86400000;
+  if (diff < 0) return { num: "0", label: "MATURA W PRZESZŁOŚCI" };
+  if (diff < d) return { num: Math.floor(diff / 3600000), label: "godzin do matury" };
+  return { num: Math.floor(diff / d), label: "dni do matury" };
+}
+
+function getDaysToMatura() {
+  return Math.max(0, Math.floor((MATURA_DATE.getTime() - Date.now()) / 86400000));
+}
+
+function getPhase() {
+  const d = getDaysToMatura();
+  if (d === 0) return "off";
+  if (d <= 2) return "peak";
+  if (d <= 5) return "high";
+  if (d <= 9) return "medium";
+  return "low";
+}
+
+function getPhaseRecommendation() {
+  const phase = getPhase();
+  const map = {
+    low: "🟢 Tryb low: Spokojnie. Buduj fundamenty: nowe lektury, fiszki bez timera, długie sesje. Komfortowy feedback.",
+    medium: "🟡 Tryb medium: Tempo rośnie. Fiszki + rozprawka 1×/tydz. Symulacja ustnego raz. Soft timer.",
+    high: "🔴 Tryb high: Pełna presja. Surowe oceny, strict timer w Egzaminatorze. 1 rozprawka dziennie z oceną.",
+    peak: "🚨 Tryb peak: TYLKO powtórki, brak nowego materiału. Pełna symulacja codziennie. Sleep 8h. Jedz dobrze.",
+    off: "🛌 MATURA DZIŚ — artifact nieaktywny. Powodzenia 🍀"
+  };
+  return map[phase];
+}
+
+function getTodayPlan() {
+  const phase = getPhase();
+  const d = getDaysToMatura();
+  if (phase === "off") return ["Sleep 8h przed maturą", "Lekkie śniadanie", "Idź na egzamin spokojnie 🍀"];
+  if (phase === "peak") return [
+    "🎓 Pełna symulacja ustnego (artifact Egzaminator) — 1 rano, 1 wieczór",
+    "📝 1 pełna rozprawka 180 min RĘCZNIE (potem zdjęcie do chatu)",
+    "🃏 Tylko fiszki słabe (<50% accuracy) — quick drill 10 min",
+    "🛌 Sen min 8h. Brak nowego materiału.",
+    "🍎 Jedzenie dobre, woda. Brak kawy po 18:00."
+  ];
+  if (phase === "high") return [
+    "📝 1 rozprawka dzienna (45-60 min) → ocena Haiku w Scaffolderze",
+    "🎓 Symulacja ustna co 2 dni (Egzaminator HARD)",
+    "🃏 25-30 fiszek — focus na due + weak",
+    "📚 Powtórka 1 lektury z Pareto P1 (lista w vault)",
+    "🛌 Sen 7-8h, regularne pory"
+  ];
+  if (phase === "medium") return [
+    "🃏 20 fiszek dziennie (mix tryb 'due' + 'all')",
+    "📝 1 rozprawka co 2-3 dni (Scaffolder)",
+    "🎓 1 symulacja ustna w tygodniu",
+    "📚 Czytanie 1 lektury (P1 lista w vault)",
+    "💡 Tryb 'wytłumacz Haiku' dla trudnych fiszek"
+  ];
+  return [
+    "🃏 15 fiszek dziennie (komfortowo, due tylko)",
+    "📚 Czytanie nowych lektur z P1 (Lalka, Pan Tadeusz, Dziady III...)",
+    "📝 Eksperymentuj z rozprawką w Scaffolderze (bez ciśnienia)",
+    "🎓 Spróbuj Egzaminator EASY (bez timera) raz",
+    "📊 Wracaj tu co rano — śledź postęp"
+  ];
+}
+
+function loadFiszkiState() {
+  try {
+    const raw = localStorage.getItem("fiszki-matura-v1");
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+
+function renderHeroAndPhase() {
+  const cd = formatCountdown();
+  document.getElementById("countdown-num").textContent = cd.num;
+  document.getElementById("countdown-label").textContent = cd.label;
+  const hero = document.getElementById("hero");
+  if (getDaysToMatura() <= 3) hero.classList.add("urgent-now");
+  const phase = getPhase();
+  document.getElementById("phase-info").innerHTML = "<strong>🎯 Faza nauki:</strong> " + phase.toUpperCase();
+  // Highlight ladder
+  ["low", "medium", "high", "peak", "off"].forEach(p => {
+    document.getElementById("ladder-" + p).classList.toggle("active", p === phase);
+  });
+  document.getElementById("phase-recommendation").textContent = getPhaseRecommendation();
+}
+
+function renderStats() {
+  const fs = loadFiszkiState();
+  if (!fs) {
+    document.getElementById("cards-today").textContent = "0";
+    document.getElementById("cards-today-label").textContent = "Otwórz artifact 🃏 Fiszki Matura";
+    document.getElementById("streak-num").textContent = "🔥 0";
+    document.getElementById("acc-num").textContent = "—";
+    document.getElementById("acc-label").textContent = "Brak danych";
+    return;
+  }
+  // Today's done — count cards seen today
+  const todayStr = new Date().toDateString();
+  let todayDone = 0;
+  for (const id in (fs.cards || {})) {
+    const c = fs.cards[id];
+    if (c.lastSeen && new Date(c.lastSeen).toDateString() === todayStr) todayDone++;
+  }
+  document.getElementById("cards-today").textContent = todayDone;
+  document.getElementById("cards-today-label").textContent = "fiszek odpowiedzianych dzisiaj";
+  document.getElementById("streak-num").textContent = "🔥 " + (fs.streak?.current || 0);
+  if (fs.totalAnswered && fs.totalAnswered > 0) {
+    const acc = Math.round(100 * fs.totalCorrect / fs.totalAnswered);
+    document.getElementById("acc-num").textContent = acc + "%";
+    document.getElementById("acc-label").textContent = fs.totalCorrect + " / " + fs.totalAnswered + " poprawnych";
+  }
+}
+
+function renderWeakList() {
+  const fs = loadFiszkiState();
+  const ul = document.getElementById("weak-list");
+  if (!fs || !fs.cards) {
+    ul.innerHTML = '<div class="empty">Otwórz Fiszki i odpowiedz min 5 fiszek, by zobaczyć słabe obszary.</div>';
+    return;
+  }
+  const weak = Object.entries(fs.cards)
+    .filter(([id, c]) => c.total >= 2 && c.correct / c.total < 0.5)
+    .sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total))
+    .slice(0, 8);
+  if (weak.length === 0) { ul.innerHTML = '<div class="empty">🎉 Brak słabych fiszek (>50% accuracy wszędzie).</div>'; return; }
+  ul.innerHTML = weak.map(([id, c]) => `<li><span>📌 fiszka <code>${id}</code></span><span class="acc">${Math.round(100 * c.correct / c.total)}%</span></li>`).join("");
+}
+
+function renderTodayPlan() {
+  const ul = document.getElementById("today-plan");
+  ul.innerHTML = getTodayPlan().map(t => `<li>${t}</li>`).join("");
+}
+
+function renderTipOfDay() {
+  // Deterministyczny tip per dzień
+  const dayIdx = Math.floor(Date.now() / 86400000) % TIPS.length;
+  document.getElementById("tip-of-day").textContent = TIPS[dayIdx];
+}
+
+function renderChartFiszki() {
+  const fs = loadFiszkiState();
+  const labels = []; const data = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86400000);
+    labels.push(d.toLocaleDateString("pl-PL", { day: "numeric", month: "short" }));
+    let count = 0;
+    if (fs && fs.cards) {
+      for (const id in fs.cards) {
+        if (fs.cards[id].lastSeen && new Date(fs.cards[id].lastSeen).toDateString() === d.toDateString()) count++;
+      }
+    }
+    data.push(count);
+  }
+  const ctx = document.getElementById("chart-fiszki").getContext("2d");
+  if (window._chartFiszki) window._chartFiszki.destroy();
+  window._chartFiszki = new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets: [{ label: "fiszki/dzień", data, backgroundColor: "#3b82f6", borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 5 } } }, plugins: { legend: { display: false } } }
+  });
+}
+
+function renderChartTags() {
+  const fs = loadFiszkiState();
+  // Map tags → accuracy
+  const tagMap = {};  // tag → { correct, total }
+  if (fs && fs.cards) {
+    // Iterate all FISZKI definitions — but we don't have them here, so synth from card IDs
+    for (const id in fs.cards) {
+      const c = fs.cards[id];
+      const prefix = id.substring(0, 2);
+      const tagName = ({ ep: "Epoki", mi: "Mickiewicz", sl: "Słowacki", po: "Poeci", pr: "Proza", ts: "Środki", cy: "Cytaty", mo: "Motywy", da: "Daty", bh: "Bohaterowie", ga: "Gatunki", ck: "CKE" })[prefix] || "Inne";
+      if (!tagMap[tagName]) tagMap[tagName] = { correct: 0, total: 0 };
+      tagMap[tagName].correct += c.correct;
+      tagMap[tagName].total += c.total;
+    }
+  }
+  const labels = Object.keys(tagMap);
+  const data = labels.map(l => tagMap[l].total > 0 ? Math.round(100 * tagMap[l].correct / tagMap[l].total) : 0);
+  const ctx = document.getElementById("chart-tags").getContext("2d");
+  if (window._chartTags) window._chartTags.destroy();
+  if (labels.length === 0) {
+    ctx.font = "13px sans-serif"; ctx.fillStyle = "#78716c"; ctx.textAlign = "center";
+    ctx.fillText("Brak danych — odpowiedz min 5 fiszek", ctx.canvas.width / 2, ctx.canvas.height / 2);
+    return;
+  }
+  window._chartTags = new Chart(ctx, {
+    type: "bar",
+    data: { labels, datasets: [{ label: "% accuracy", data, backgroundColor: data.map(v => v >= 70 ? "#10b981" : v >= 50 ? "#f59e0b" : "#f43f5e"), borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, indexAxis: "y", scales: { x: { beginAtZero: true, max: 100, ticks: { callback: v => v + "%" } } }, plugins: { legend: { display: false } } }
+  });
+}
+
+function renderAll() {
+  renderHeroAndPhase();
+  renderStats();
+  renderWeakList();
+  renderTodayPlan();
+  renderTipOfDay();
+  renderChartFiszki();
+  renderChartTags();
+}
+
+renderAll();
+setInterval(renderAll, 60000);
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined" || !window.matura) return;
+  const orig = window.matura.callClaude;
+  window.matura.callClaude = async function(prompt) {
+    try { return await orig(prompt); }
+    catch (e) {
+      if (e && (e.message === "MISSING_API_KEY" || e.message === "INVALID_API_KEY")) {
+        if (window.matura.showApiKeyModal) {
+          window.matura.showApiKeyModal(() => location.reload());
+        }
+      }
+      throw e;
+    }
+  };
+})();
+</script>
+
+</body>
+</html>

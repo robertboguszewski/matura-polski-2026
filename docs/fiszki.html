@@ -1,0 +1,507 @@
+<!doctype html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Fiszki Matura",
+  "schemaVersion": 1,
+  "description": "Quiz fiszek z spaced repetition do nauki na maturę polską 2026. ~60 fiszek (motywy, epoki, środki stylistyczne, daty, cytaty). 3-znacznikowa ocena (✓/⚠/✗) zamiast binarnej. Algorytm SM-2 lite z interwałami 1d→3d→7d→14d→30d. Streak counter + accuracy %. Tryb \"wytłumacz Haiku\" — gdy nie pamiętasz, klik wywołuje Claude Haiku z wyjaśnieniem."
+}
+</script>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiszki Matura Polski</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: #fafaf9; color: #1c1917; font-size: 14px; line-height: 1.5; }
+.container { max-width: 700px; margin: 0 auto; padding: 12px; padding-bottom: 80px; }
+header { position: sticky; top: 0; z-index: 30; background: white; border-bottom: 1px solid #e7e5e4; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.title { font-weight: 700; font-size: 16px; }
+.stats { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.stat-pill { padding: 4px 10px; border-radius: 999px; background: #f5f5f4; color: #44403c; }
+.stat-pill.streak { background: #fef3c7; color: #92400e; }
+.stat-pill.accuracy { background: #ecfdf5; color: #065f46; }
+.stat-pill.due { background: #fee2e2; color: #991b1b; }
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.tab { padding: 8px 14px; border: 1px solid #e7e5e4; background: white; border-radius: 6px; cursor: pointer; font: inherit; font-size: 13px; }
+.tab.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+.fiszka {
+  background: white; border: 2px solid #e7e5e4; border-radius: 12px;
+  padding: 30px 20px; min-height: 280px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  cursor: pointer; transition: border-color 0.2s;
+  margin-bottom: 12px;
+}
+.fiszka:hover { border-color: #3b82f6; }
+.fiszka .tags { font-size: 11px; color: #78716c; margin-bottom: 12px; display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { background: #f5f5f4; padding: 2px 8px; border-radius: 4px; }
+.fiszka .question { font-size: 18px; font-weight: 600; line-height: 1.4; flex: 1; }
+.fiszka .answer { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e7e5e4; font-size: 14px; color: #44403c; }
+.fiszka .answer .label { font-size: 11px; color: #78716c; margin-bottom: 4px; }
+.fiszka .answer .body { font-weight: 500; }
+.fiszka .answer .hak { margin-top: 12px; padding: 10px; background: #eff6ff; border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 13px; }
+.fiszka .answer .hak strong { color: #1e3a8a; }
+.fiszka .reveal-hint { color: #78716c; font-size: 12px; text-align: center; margin-top: 16px; font-style: italic; }
+.rate-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+.rate-btn { padding: 14px; border: none; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.rate-btn.good { background: #10b981; color: white; }
+.rate-btn.medium { background: #f59e0b; color: white; }
+.rate-btn.bad { background: #f43f5e; color: white; }
+.rate-btn small { display: block; font-weight: 400; font-size: 10px; opacity: 0.85; margin-top: 2px; }
+.rate-btn:hover { filter: brightness(1.05); }
+.empty { text-align: center; padding: 40px 20px; color: #78716c; }
+.empty h2 { font-size: 18px; margin: 0 0 8px 0; }
+.actions-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.btn { padding: 8px 14px; border: 1px solid #e7e5e4; background: white; border-radius: 6px; cursor: pointer; font: inherit; font-size: 13px; }
+.btn:hover { background: #f5f5f4; }
+.btn.primary { background: #3b82f6; color: white; border-color: #3b82f6; }
+.btn.primary:hover { background: #2563eb; }
+.help-panel { margin-top: 12px; padding: 12px; background: #f5f5f4; border-radius: 8px; }
+.help-panel .head { font-size: 12px; color: #78716c; margin-bottom: 6px; }
+.help-panel .body { white-space: pre-wrap; font-size: 13px; }
+.banner { background: #fef3c7; border: 1px solid #fde68a; color: #78350f; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; font-size: 12px; }
+.confidence-q { padding: 12px; background: #eff6ff; border-radius: 8px; margin-bottom: 12px; text-align: center; }
+.confidence-q label { font-size: 12px; color: #1e3a8a; margin-bottom: 6px; display: block; }
+.confidence-buttons { display: flex; gap: 6px; justify-content: center; }
+.conf-btn { padding: 8px 16px; border: 1px solid #bfdbfe; background: white; border-radius: 6px; cursor: pointer; font: inherit; font-size: 13px; }
+.conf-btn.selected { background: #3b82f6; color: white; border-color: #3b82f6; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(0,0,0,0.1); border-top-color: currentColor; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 8px 16px; border-radius: 8px; background: #1c1917; color: white; font-size: 13px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 60; }
+.toast.success { background: #059669; }
+.toast.error { background: #dc2626; }
+.session-summary { padding: 20px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; text-align: center; }
+.session-summary h2 { color: #065f46; margin: 0 0 10px 0; }
+.session-summary .big-num { font-size: 36px; font-weight: 700; color: #065f46; }
+</style>
+</head>
+<body>
+<div style="background:#1c1917;color:white;padding:8px 14px;font-size:12px;display:flex;gap:14px;align-items:center;">
+  <a href="index.html" style="color:#93c5fd;text-decoration:none;font-weight:600;">← Matura 2026</a>
+  <a href="rozprawka.html" style="color:#d6d3d1;text-decoration:none;">📝 Rozprawka</a>
+  <a href="fiszki.html" style="color:#d6d3d1;text-decoration:none;">🃏 Fiszki</a>
+  <a href="egzaminator.html" style="color:#d6d3d1;text-decoration:none;">🎓 Ustny</a>
+  <a href="dashboard.html" style="color:#d6d3d1;text-decoration:none;">📊 Dashboard</a>
+  <span style="margin-left:auto;color:#a8a29e;font-size:11px;" id="matura-mode-indicator">—</span>
+</div>
+<header>
+  <div class="title">🃏 Fiszki Matura</div>
+  <div class="stats">
+    <span class="stat-pill" id="countdown-pill">— do matury</span>
+    <span class="stat-pill due" id="due-pill">0 do powtórki</span>
+    <span class="stat-pill streak" id="streak-pill">🔥 0 dni</span>
+    <span class="stat-pill accuracy" id="accuracy-pill">— %</span>
+  </div>
+</header>
+
+<div class="container">
+  <div class="banner">
+    <strong>Tryb spaced repetition (Haiku):</strong> 1d → 3d → 7d → 14d → 30d. Błąd = reset do dnia 1. Pytanie/odpowiedź + hak pamięciowy.
+    Dla głębokiej nauki nowych tematów → użyj chatu Claude (Sonnet).
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-mode="due">Do powtórki dziś</button>
+    <button class="tab" data-mode="all">Wszystkie</button>
+    <button class="tab" data-mode="weak">Słabe (<50% accuracy)</button>
+    <button class="tab" data-mode="filter">Filtruj tag</button>
+  </div>
+
+  <div id="filter-controls" style="display:none; margin-bottom:12px;">
+    <select id="tag-filter" style="padding: 6px; border-radius: 6px; border: 1px solid #e7e5e4;">
+      <option value="">Wszystkie tagi</option>
+    </select>
+  </div>
+
+  <div id="card-area"></div>
+</div>
+
+<div id="toast-container"></div>
+
+
+<script src="shared/claude-api.js"></script>
+<script>
+window.addEventListener("DOMContentLoaded", () => {
+  const ind = document.getElementById("matura-mode-indicator");
+  if (ind && window.matura) ind.textContent = "🤖 " + window.matura.getModeLabel();
+});
+</script>
+
+<script>
+const MATURA_DATE = new Date("2026-05-05T09:00:00+02:00");
+const STORAGE_KEY = "fiszki-matura-v1";
+
+// === BANK FISZEK (z vault: motywy, epoki, środki, daty, cytaty) ===
+const FISZKI = [
+  // EPOKI (8)
+  { id: "ep01", tags: ["epoka","romantyzm"], q: "Romantyzm w Polsce — daty graniczne", a: "1822 (Ballady i romanse Mickiewicza, Wilno) — 1864 (upadek powstania styczniowego)", hak: "1822 = jedna-ósma-dwu-dwa = wieszcze wjeżdżają na scenę" },
+  { id: "ep02", tags: ["epoka","pozytywizm"], q: "Pozytywizm — daty + 3 hasła", a: "1864–1890. Praca u podstaw, praca organiczna, scjentyzm", hak: "POZ = Praca Organiczna+u podstaw+Zdrowy rozsądek" },
+  { id: "ep03", tags: ["epoka","barok"], q: "Barok — daty + dwie szkoły poetyckie", a: "ok. 1620–1764. Marinizm (kunsztowność) i konceptyzm (paradoks)", hak: "BARok = Bohaterowie Ambiwalentni, Rozdarcie" },
+  { id: "ep04", tags: ["epoka","oswiecenie"], q: "Oświecenie polskie — najważniejsze nazwisko + dzieło", a: "Ignacy Krasicki — Satyry, Bajki, Monachomachia", hak: "Krasicki = Krytyk Klasztorów" },
+  { id: "ep05", tags: ["epoka","mloda-polska"], q: "Młoda Polska — daty + filozofia", a: "1890–1918. Schopenhauer (pesymizm), Nietzsche (nadczłowiek), Bergson (intuicjonizm)", hak: "Młoda = Modernizm Łyczy 3 Filozofie" },
+  { id: "ep06", tags: ["epoka","dwudziestolecie"], q: "Dwudziestolecie międzywojenne — daty + 2 grupy poetyckie", a: "1918–1939. Skamander (Tuwim, Iwaszkiewicz, Lechoń) i Awangarda Krakowska (Peiper, Przyboś)", hak: "SKAmander = Słońce, Krakowska Awangarda = Kanciaste" },
+  { id: "ep07", tags: ["epoka","wspolczesnosc"], q: "Pokolenie Kolumbów — co to + 3 nazwiska", a: "Pokolenie urodzone ok. 1920, dorastające w wojnie. Baczyński, Gajcy, Borowski", hak: "BGB = Baczyński, Gajcy, Borowski — Bohaterowie Generacji Bólu" },
+  { id: "ep08", tags: ["epoka","renesans"], q: "Renesans w Polsce — granice + dwóch poetów", a: "ok. 1543 (śmierć Kopernika) – 1620. Jan Kochanowski + Mikołaj Rej", hak: "Rej + Kochanowski = Rdzeń Renesansu" },
+
+  // MICKIEWICZ (5)
+  { id: "mi01", tags: ["lektura","mickiewicz","romantyzm"], q: "Kto napisał *Dziady cz. III* i kiedy?", a: "Adam Mickiewicz, 1832, Drezno (stąd Dziady drezdeńskie)", hak: "Dziady w Dreźnie pisze Adam, bo Adam był tam" },
+  { id: "mi02", tags: ["lektura","mickiewicz"], q: "Wielka Improwizacja — gdzie + o czym?", a: "Dziady III, akt 3 sc. 5 (II część). Konrad walczy z Bogiem o władzę nad duszami", hak: "Wielka = Walka I o Liczne Konradowe Argumenty" },
+  { id: "mi03", tags: ["lektura","mickiewicz"], q: "Pan Tadeusz — rok wydania + miasto", a: "1834, Paryż", hak: "1834 = Po 30 latach (od 1804) Tadeusz powraca, w Paryżu pisany" },
+  { id: "mi04", tags: ["motyw","mesjanizm","mickiewicz"], q: "Mesjanizm Mickiewicza — gdzie + na czym polega?", a: "Dziady III (Widzenie ks. Piotra). Polska = Chrystus narodów, cierpi za wolność innych", hak: "Polska MEsjasz = Męczeństwo Europy" },
+  { id: "mi05", tags: ["cytat","mickiewicz"], q: "Cytat 'Litwo, ojczyzno moja!' — skąd?", a: "Pan Tadeusz, Inwokacja (księga I, otwarcie). Pierwszy wers", hak: "Litwo-ojczyzno = Litwa otwiera Liczne Tady" },
+
+  // SLOWACKI (3)
+  { id: "sl01", tags: ["lektura","slowacki","romantyzm"], q: "Kordian — autor + rok + cel polemiczny", a: "Juliusz Słowacki, 1834. Polemika z Dziadami III Mickiewicza (atak na bierność, mesjanizm)", hak: "1834 = SK polemizuje z MD (Słowacki vs Mickiewicz)" },
+  { id: "sl02", tags: ["lektura","slowacki","cytat"], q: "Cytat 'Polacy są jak fortepian Chopina' — skąd?", a: "Juliusz Słowacki, Testament mój. Metafora narodowego losu", hak: "Fortepian Chopina = Forma cierpienia + Polski głos" },
+  { id: "sl03", tags: ["lektura","slowacki"], q: "Winkelriedyzm — co to + skąd?", a: "Idea poświęcenia jednostki dla wolności narodu. Z Kordiana Słowackiego (Mont Blanc)", hak: "Winkelried = Wojownik na własną Pierś" },
+
+  // POZOSTALI POECI (4)
+  { id: "po01", tags: ["poeta","norwid"], q: "Cyprian Kamil Norwid — epoka + 3 wiersze", a: "Romantyk (publikacje pośmiertne). 'Bema pamięci żałobny rapsod', 'Fortepian Szopena', 'Moja piosnka'", hak: "Norwid = Niedoceniony Romantyk Poemat Włóczykij" },
+  { id: "po02", tags: ["poeta","herbert"], q: "Pan Cogito — czyj cykl + co symbolizuje?", a: "Zbigniew Herbert. 'Myślę, więc jestem' — etyka, wierność wartościom mimo wszystko", hak: "Cogito = Człowiek-Etyk (Herbert)" },
+  { id: "po03", tags: ["poeta","milosz"], q: "Czesław Miłosz — Nobel + rok + zbiór", a: "Nobel 1980. 'Ocalony', 'Campo di Fiori', 'Który skrzywdziłeś'", hak: "Miłosz 1980 = Mickiewiczowska Linia Ocalonych Słów" },
+  { id: "po04", tags: ["poeta","szymborska"], q: "Wisława Szymborska — Nobel + rok + dwa wiersze", a: "Nobel 1996. 'Nic dwa razy', 'Kot w pustym mieszkaniu'", hak: "Szymborska 1996 = Subtelnie Zwyczajna Mistrzyni" },
+
+  // PROZA REALIZM/POZYTYWIZM (4)
+  { id: "pr01", tags: ["lektura","prus","pozytywizm"], q: "Lalka — autor + rok + 3 wątki", a: "Bolesław Prus, 1890. (1) Miłość Wokulskiego do Izabeli, (2) Polska po powstaniu styczniowym, (3) Kapitalizm vs idealizm", hak: "Lalka 1890 = Lalka 19. wieku, ostatni 9-iątek" },
+  { id: "pr02", tags: ["bohater","wokulski"], q: "Wokulski — kim był + dlaczego ginie?", a: "Kupiec, romantyk-pozytywista jednocześnie. Prawdopodobnie wysadza się prochem w Zasławiu (rozdarcie idei)", hak: "Wokulski = Wojownik Kapitalizmu i Romantyzmu" },
+  { id: "pr03", tags: ["lektura","orzeszkowa"], q: "Gloria victis — autor + tematyka", a: "Eliza Orzeszkowa. Powstanie styczniowe 1863. Romantyczny tetyzm pamięci o pokonanych", hak: "Gloria = Glorifikacja Powstania" },
+  { id: "pr04", tags: ["lektura","reymont"], q: "Chłopi — autor + Nobel + 4 tomy", a: "Władysław Reymont, Nobel 1924. 4 tomy: Jesień, Zima, Wiosna, Lato", hak: "Reymont 4 pory = Rolniczy Rytm" },
+
+  // TEORIA — ŚRODKI STYLISTYCZNE (10)
+  { id: "ts01", tags: ["srodek","oksymoron"], q: "Oksymoron — definicja + 2 przykłady", a: "Zestawienie 2 słów o przeciwstawnym znaczeniu. 'Żywy trup', 'gorący lód', 'głośna cisza'", hak: "OKSY-MORON = ostry głupiec (sama nazwa to oksymoron)" },
+  { id: "ts02", tags: ["srodek","metafora"], q: "Metafora vs porównanie — różnica", a: "Metafora przenosi znaczenie BEZ łącznika ('serce z kamienia'). Porównanie używa 'jak'/'niczym' ('twarde jak kamień')", hak: "Metafora = przeniesienie BEZpośrednie; porównanie = porównuję 'jak'" },
+  { id: "ts03", tags: ["srodek","apostrofa"], q: "Apostrofa — definicja + przykład", a: "Bezpośredni zwrot do osoby, bóstwa, idei. 'Litwo, ojczyzno moja!'", hak: "Apostrofa = Adresowane Pismo" },
+  { id: "ts04", tags: ["srodek","peryfraza"], q: "Peryfraza — definicja + przykład", a: "Opisanie zjawiska zamiast nazwania. 'Wieczne miasto' = Rzym, 'Władca lasu' = lew", hak: "PERYfraza = Pisze Po Erudycyjnie Yomka, nie wprost" },
+  { id: "ts05", tags: ["srodek","anafora"], q: "Anafora — definicja + przykład literacki", a: "Powtórzenie tego samego słowa na początku kolejnych wersów/zdań. 'Kto rano wstaje... Kto walczy...'", hak: "ANAfora = Anonsuje (powtarza na początku)" },
+  { id: "ts06", tags: ["srodek","epitet"], q: "Epitet — definicja + 2 przykłady", a: "Określenie rzeczownika (przymiotnik/imiesłów). 'Białe ręce', 'martwa cisza'", hak: "Epitet = Etykieta przy rzeczowniku" },
+  { id: "ts07", tags: ["srodek","alegoria"], q: "Alegoria — definicja + 2 przykłady", a: "Stałe przeniesienie znaczenia (1 obraz = 1 idea, ustalone). Lis = chytrość, Sowa = mądrość, Krzyż = chrześcijaństwo", hak: "ALEgoria = Ale to oznacza coś INNEGO (jednoznacznie)" },
+  { id: "ts08", tags: ["srodek","symbol"], q: "Symbol — różnica od alegorii", a: "Symbol jest wieloznaczny i otwarty na interpretację. Alegoria — jedno znaczenie ustalone tradycją", hak: "Symbol = Subiektywny; Alegoria = Aprobowana (przez tradycję)" },
+  { id: "ts09", tags: ["srodek","hiperbola"], q: "Hiperbola — definicja + przykład", a: "Wyolbrzymienie. 'Sto razy mówiłem', 'umieram z głodu'", hak: "HIPER = HIPER-przesada" },
+  { id: "ts10", tags: ["srodek","ironia"], q: "Ironia romantyczna — definicja + autor", a: "Świadome dystansowanie się autora od dzieła i bohaterów. Charakter Słowackiego (Beniowski) i Norwida", hak: "IRONIA romantyczna = wIem że to gra" },
+
+  // CYTATY KLUCZOWE (5)
+  { id: "cy01", tags: ["cytat","mickiewicz","romantyzm"], q: "Cytat 'Szkiełko i oko' — skąd + symbolizuje?", a: "Mickiewicz, Romantyczność (z Ballad i romansów, 1822). Symbol racjonalizmu oświeceniowego, kontra 'czucie i wiara'", hak: "Szkiełko-oKo = SKIELET Oświecenia" },
+  { id: "cy02", tags: ["cytat","kochanowski"], q: "Cytat 'Czego chcesz od nas, Panie' — skąd", a: "Jan Kochanowski, Pieśń XXV (renesans). Hymn pochwalny Boga jako twórcy świata harmonijnego", hak: "Czego-chcesz = Centralna Pieśń K-ochanowskiego" },
+  { id: "cy03", tags: ["cytat","gombrowicz"], q: "Cytat 'Słowacki wielkim poetą był' — skąd + co znaczy?", a: "Ferdydurke (Gombrowicz, 1937). Ironiczna scena lekcji — krytyka FORMY narzucanej przez kulturę", hak: "Słowacki wielki = Spotkanie z Formą szkoły" },
+  { id: "cy04", tags: ["cytat","baczynski"], q: "Cytat 'Wstaną sobowtóry...' — autor + utwór", a: "Krzysztof Kamil Baczyński, 'Pokolenie' (1943). Pokolenie Kolumbów, wojna jako los", hak: "Sobowtóry = Synowie Wojny (Baczyński)" },
+  { id: "cy05", tags: ["cytat","norwid"], q: "Cytat 'Ojczyzna to wielki zbiorowy obowiązek' — autor", a: "Cyprian Kamil Norwid, 'Memoriał o młodej emigracji'. Etyczna definicja patriotyzmu", hak: "Ojczyzna = Obowiązek (Norwid normatywny)" },
+
+  // MOTYWY (8)
+  { id: "mo01", tags: ["motyw","tyrtejski"], q: "Motyw tyrtejski — co to + 2 lektury", a: "Wezwanie do walki za ojczyznę. Reduta Ordona (Mickiewicz), Pieśń o żołnierzach Westerplatte (Gałczyński)", hak: "TYRT = Trzeba Umrzeć Ratując Tamtych" },
+  { id: "mo02", tags: ["motyw","dom"], q: "Motyw domu w literaturze polskiej — 3 przykłady", a: "Soplicowo (Pan Tadeusz) — arkadia; Nawłoć (Przedwiośnie) — fasada; dom Stomilów (Tango) — chaos pokoleń", hak: "Dom = Dziedzictwo Ojcowizny i Migracji" },
+  { id: "mo03", tags: ["motyw","wojna"], q: "Motyw wojny — 4 lektury z różnych epok", a: "Iliada (antyk), Pan Tadeusz (1812 — wkroczenie Napoleona), Borowski (II w.), Baczyński (poezja wojenna)", hak: "Wojna = od Iliad do Borowskiego" },
+  { id: "mo04", tags: ["motyw","milosc"], q: "Miłość romantyczna — 3 cechy + 2 lektury", a: "Nieszczęśliwa, idealizująca, prowadzi do śmierci. Cierpienia młodego Wertera, Dziady cz. IV (Gustaw)", hak: "Miłość romantyczna = Może I Łza, Ostatecznie Śmierć" },
+  { id: "mo05", tags: ["motyw","wladza"], q: "Motyw władzy i jej deformacji — 3 lektury", a: "Makbet (żądza władzy), Antygona (Kreon — tyran), Tango Mrożka (władza chaosu i nudy)", hak: "Władza = Wszechmoc Łamie Decyzję Zdrowych A R" },
+  { id: "mo06", tags: ["motyw","cierpienie"], q: "Motyw cierpienia — różnica chrześcijańskiego vs nihilistycznego", a: "Chrześcijańskie: ma sens, prowadzi do zbawienia (Hiob, Aleksy). Nihilistyczne: bezsensowne, brutalizujące (Borowski, Camus)", hak: "Cierpienie = Chrystus VS Camus" },
+  { id: "mo07", tags: ["motyw","wybor"], q: "Wybór moralny w literaturze — 3 lektury", a: "Antygona (prawo boskie vs ludzkie), Konrad Wallenrod (zdrada dla ojczyzny), Inny świat (przetrwać czy zachować godność)", hak: "Wybór = W Obliczu Bólu Yes/No Religii" },
+  { id: "mo08", tags: ["motyw","artysta"], q: "Motyw artysty — 3 odsłony epok", a: "Romantyzm: wieszcz-prorok (Konrad). Młoda Polska: artysta-cygan (Stanisław z Wesela). XX w.: artysta-świadek (Borowski)", hak: "Artysta = Wieszcz → Cygan → Świadek" },
+
+  // DATY (5)
+  { id: "da01", tags: ["data","romantyzm"], q: "1822 — co?", a: "Wydanie 'Ballad i romansów' Adama Mickiewicza. Początek romantyzmu w Polsce", hak: "1822 = jedna ósma dwu dwu = Mickiewicz w Wilnie" },
+  { id: "da02", tags: ["data","romantyzm"], q: "1830 — co?", a: "Powstanie listopadowe (29 listopada 1830 – wrzesień 1831). Cezura — po nim Wielka Emigracja", hak: "1830 = 30 listopada (prawie) = Listopadowe" },
+  { id: "da03", tags: ["data","mickiewicz"], q: "1834 — co (literatura polska)?", a: "Wydanie Pana Tadeusza (Mickiewicz) i Kordiana (Słowacki) — POLEMIKA dwóch wieszczów", hak: "1834 = czwórka = czterej wieszcze polemizują" },
+  { id: "da04", tags: ["data","pozytywizm"], q: "1864 — co + dlaczego cezura?", a: "Upadek powstania styczniowego. Koniec romantyzmu w Polsce, początek pozytywizmu", hak: "1864 = 64 = tysiące poległych powstańców" },
+  { id: "da05", tags: ["data","wspolczesnosc"], q: "1980 — co (literatura polska)?", a: "Nobel literacki dla Czesława Miłosza — po raz pierwszy Polak po Reymont (1924)", hak: "1980 = 80 lat po Reymont (1900-cości)" },
+
+  // BOHATEROWIE (5)
+  { id: "bh01", tags: ["bohater","konrad"], q: "Konrad — kim jest + 2 utwory", a: "Bohater wieszcz-buntownik. Dziady III (Wielka Improwizacja), Konrad Wallenrod (zdradza dla ojczyzny)", hak: "Konrad = Krzyk Boga Romantycznego" },
+  { id: "bh02", tags: ["bohater","jacek"], q: "Jacek Soplica — kim + jego przemiana", a: "Pan Tadeusz. Z 'Wąsala' (zabójca Stolnika z miłości) → ks. Robak (pokutnik, emisariusz Napoleona)", hak: "Jacek-Robak = Jak Robak się przemienia" },
+  { id: "bh03", tags: ["bohater","jurand"], q: "Antygona — co broni + cena", a: "Prawa boskiego (pochować brata) przeciw prawu ludzkiemu (Kreon). Cena: śmierć w grobowcu", hak: "Antygona = ANTY-Państwo, ZA Bogiem" },
+  { id: "bh04", tags: ["bohater","raskolnikow"], q: "Raskolnikow — kim + co testuje?", a: "Zbrodnia i kara (Dostojewski). Student-teoretyk. Testuje teorię 'ludzi niezwykłych' zabijając lichwiarkę", hak: "RASKolnikow = ROZŁAM (rus. raskoł) w duszy" },
+  { id: "bh05", tags: ["bohater","gustaw"], q: "Gustaw vs Konrad — kim są + transformacja", a: "Dziady. Gustaw (cz. IV) — kochanek nieszczęśliwy. Konrad (cz. III) — wieszcz-buntownik. 'Gustavus mortuus est, natus est Conradus'", hak: "Gustaw + Konrad = Gęsto Krwawe → Krzyk Konrada" },
+
+  // GATUNKI (3)
+  { id: "ga01", tags: ["gatunek","ballada"], q: "Ballada — definicja + 2 cechy", a: "Krótki utwór epicki z elementami lirycznymi i dramatycznymi. Tajemniczość, ludowość, dramatyzm", hak: "Ballada = BAL Atmosfery LudowoDramatycznej" },
+  { id: "ga02", tags: ["gatunek","tragedia"], q: "Tragedia antyczna — 3 reguły jedności", a: "Jedność akcji, miejsca, czasu (24h). Konflikt tragiczny, katharsis, hybris", hak: "3 jedności = AMC = Akcja Miejsce Czas" },
+  { id: "ga03", tags: ["gatunek","powiesc"], q: "Powieść realistyczna — 4 cechy", a: "Wszechwiedzący narrator, prawdopodobieństwo, panorama społeczna, bohater zindywidualizowany", hak: "Realizm = Reportaż wyglądu Społecznego" },
+
+  // CKE-SPECYFICZNE (3)
+  { id: "ck01", tags: ["cke","strategia"], q: "Min liczba słów na rozprawce maturalnej + co poniżej?", a: "Min 300 słów. Poniżej = 0 pkt z 'Kompetencji literackich' (16 pkt) AUTOMATYCZNIE", hak: "300 = 0 z 16 (poniżej = zero kompetencji)" },
+  { id: "ck02", tags: ["cke","strategia"], q: "Struktura rozprawki — 5 akapitów + ile słów każdy", a: "Wstęp+teza (40-60), Arg1 lektura główna (80-110), Arg2 (60-80), Arg3 (60-80), Konkluzja (40-60)", hak: "WTAAAK = Wstęp Teza A1 A2 A3 Konkluzja" },
+  { id: "ck03", tags: ["cke","strategia"], q: "Schemat PEEL — co znaczy?", a: "Point (zdanie tematyczne) → Evidence (cytat/scena) → Explain (interpretacja) → Link (przejście)", hak: "PEEL = Punkt Evidencja Eksplikacja Link" }
+];
+
+// === STATE ===
+let state = {
+  // Per-fiszka SR state: { lastSeen, level (0-5), correct, total, dueAt }
+  cards: {},
+  streak: { lastDay: null, current: 0 },
+  totalAnswered: 0,
+  totalCorrect: 0,
+  privacyMode: false,
+  privacyWarningSeen: false,
+  // Current session
+  mode: "due",  // "due" | "all" | "weak" | "filter"
+  filterTag: "",
+  currentIdx: 0,
+  revealed: false,
+  confidenceGuess: null,
+  helpResponse: null,
+  helpLoading: false,
+  sessionDone: 0,
+  sessionCorrect: 0
+};
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      Object.assign(state, parsed);
+    }
+  } catch (e) {}
+}
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      cards: state.cards, streak: state.streak,
+      totalAnswered: state.totalAnswered, totalCorrect: state.totalCorrect,
+      privacyWarningSeen: state.privacyWarningSeen
+    }));
+  } catch (e) {}
+}
+
+// SR intervals (ms)
+const SR_INTERVALS = [0, 1, 3, 7, 14, 30].map(d => d * 24 * 3600 * 1000);
+
+function getCardState(id) {
+  return state.cards[id] || { lastSeen: null, level: 0, correct: 0, total: 0, dueAt: 0 };
+}
+function isDue(id) {
+  const cs = getCardState(id);
+  return Date.now() >= cs.dueAt;
+}
+function getDueFiszki() { return FISZKI.filter(f => isDue(f.id)); }
+function getWeakFiszki() {
+  return FISZKI.filter(f => {
+    const cs = getCardState(f.id);
+    return cs.total >= 2 && (cs.correct / cs.total) < 0.5;
+  });
+}
+function getFilteredFiszki() {
+  if (!state.filterTag) return FISZKI;
+  return FISZKI.filter(f => f.tags.includes(state.filterTag));
+}
+function currentDeck() {
+  if (state.mode === "due") return getDueFiszki();
+  if (state.mode === "weak") return getWeakFiszki();
+  if (state.mode === "filter") return getFilteredFiszki();
+  return FISZKI;
+}
+
+function rateFiszka(id, rating) {
+  // rating: "good" (✓), "medium" (⚠ guess), "bad" (✗)
+  const cs = getCardState(id);
+  cs.lastSeen = Date.now();
+  cs.total++;
+  if (rating === "good") {
+    cs.correct++;
+    cs.level = Math.min(5, cs.level + 1);
+  } else if (rating === "medium") {
+    // stay same level
+  } else {
+    cs.level = Math.max(0, cs.level - 2);  // soft reset
+  }
+  cs.dueAt = Date.now() + SR_INTERVALS[cs.level];
+  state.cards[id] = cs;
+  state.totalAnswered++;
+  if (rating === "good") state.totalCorrect++;
+  state.sessionDone++;
+  if (rating === "good") state.sessionCorrect++;
+  // Streak
+  const today = new Date().toDateString();
+  if (state.streak.lastDay !== today) {
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    state.streak.current = state.streak.lastDay === yesterday ? state.streak.current + 1 : 1;
+    state.streak.lastDay = today;
+  }
+  saveState();
+}
+
+function formatCountdown() {
+  const diff = MATURA_DATE.getTime() - Date.now();
+  const d = 86400000;
+  if (diff < 0) return "PO MATURZE";
+  if (diff >= d) return Math.floor(diff / d) + " dni";
+  return Math.floor(diff / 3600000) + " godz.";
+}
+
+function escHtml(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function showToast(msg, type) {
+  const c = document.getElementById("toast-container");
+  c.innerHTML = '<div class="toast ' + (type || "") + '">' + escHtml(msg) + '</div>';
+  setTimeout(() => { c.innerHTML = ""; }, 3500);
+}
+
+function renderHeader() {
+  document.getElementById("countdown-pill").textContent = formatCountdown() + " do matury";
+  const due = getDueFiszki().length;
+  document.getElementById("due-pill").textContent = due + " do powtórki";
+  document.getElementById("streak-pill").textContent = "🔥 " + state.streak.current + " dni";
+  const acc = state.totalAnswered > 0 ? Math.round(100 * state.totalCorrect / state.totalAnswered) : 0;
+  document.getElementById("accuracy-pill").textContent = state.totalAnswered > 0 ? acc + "% accuracy" : "0/0";
+}
+
+function populateTagFilter() {
+  const tags = new Set();
+  FISZKI.forEach(f => f.tags.forEach(t => tags.add(t)));
+  const sel = document.getElementById("tag-filter");
+  sel.innerHTML = '<option value="">Wszystkie</option>';
+  Array.from(tags).sort().forEach(t => {
+    const opt = document.createElement("option");
+    opt.value = t; opt.textContent = t;
+    sel.appendChild(opt);
+  });
+  sel.value = state.filterTag;
+}
+
+function renderCard() {
+  const area = document.getElementById("card-area");
+  const deck = currentDeck();
+  if (deck.length === 0) {
+    area.innerHTML = '<div class="empty"><h2>🎉 Wszystko zrobione!</h2><p>Brak fiszek w tym trybie. Wróć jutro lub zmień zakładkę.</p></div>';
+    return;
+  }
+  if (state.currentIdx >= deck.length) {
+    area.innerHTML = '<div class="session-summary"><h2>✓ Sesja zakończona</h2><div class="big-num">' + state.sessionCorrect + '/' + state.sessionDone + '</div><p>poprawnych odpowiedzi tej sesji</p><div class="actions-bar" style="justify-content:center"><button class="btn primary" onclick="newSession()">Nowa sesja</button></div></div>';
+    return;
+  }
+  const f = deck[state.currentIdx];
+  const cs = getCardState(f.id);
+  const accFiszka = cs.total > 0 ? Math.round(100 * cs.correct / cs.total) : null;
+  let html = '<div class="fiszka">';
+  html += '<div class="tags">' + f.tags.map(t => '<span class="tag">' + escHtml(t) + '</span>').join("") + (accFiszka != null ? '<span class="tag" style="background:#fef3c7;color:#92400e">accuracy ' + accFiszka + '%</span>' : '') + (cs.level > 0 ? '<span class="tag" style="background:#ecfdf5;color:#065f46">level ' + cs.level + '/5</span>' : '') + '</div>';
+  html += '<div class="question">' + escHtml(f.q) + '</div>';
+  if (state.revealed) {
+    html += '<div class="answer"><div class="label">Odpowiedź</div><div class="body">' + escHtml(f.a) + '</div>';
+    html += '<div class="hak"><strong>🧠 Hak:</strong> ' + escHtml(f.hak) + '</div></div>';
+  } else {
+    html += '<div class="reveal-hint">Kliknij kartę, by zobaczyć odpowiedź</div>';
+  }
+  html += '</div>';
+  if (!state.revealed && state.confidenceGuess == null) {
+    html += '<div class="confidence-q"><label>Zanim zobaczysz odpowiedź — jak pewny jesteś?</label><div class="confidence-buttons">';
+    [25, 50, 75, 100].forEach(p => {
+      html += '<button class="conf-btn" data-conf="' + p + '">' + p + '%</button>';
+    });
+    html += '</div></div>';
+  }
+  if (state.revealed) {
+    html += '<div class="rate-buttons">';
+    html += '<button class="rate-btn bad" data-rate="bad">✗ Nie wiedziałem<small>reset SR</small></button>';
+    html += '<button class="rate-btn medium" data-rate="medium">⚠ Zgadłem<small>powtórz wkrótce</small></button>';
+    html += '<button class="rate-btn good" data-rate="good">✓ Wiedziałem<small>level +1</small></button>';
+    html += '</div>';
+    html += '<div class="actions-bar"><button class="btn" onclick="askHaiku(\'' + f.id + '\')"' + (state.helpLoading ? ' disabled' : '') + '>' + (state.helpLoading ? '<span class="spinner"></span> Haiku tłumaczy...' : '💡 Wytłumacz mi to (Haiku)') + '</button></div>';
+    if (state.helpResponse) {
+      html += '<div class="help-panel"><div class="head">Wyjaśnienie Haiku:</div><div class="body">' + escHtml(state.helpResponse) + '</div></div>';
+    }
+  }
+  area.innerHTML = html;
+  // Wire up
+  if (!state.revealed) {
+    area.querySelector(".fiszka").addEventListener("click", () => {
+      state.revealed = true; renderCard();
+    });
+    area.querySelectorAll(".conf-btn").forEach(b => {
+      b.addEventListener("click", e => {
+        state.confidenceGuess = parseInt(e.target.dataset.conf);
+        state.revealed = true; renderCard();
+      });
+    });
+  } else {
+    area.querySelectorAll(".rate-btn").forEach(b => {
+      b.addEventListener("click", e => {
+        const rating = e.currentTarget.dataset.rate;
+        rateFiszka(f.id, rating);
+        state.currentIdx++;
+        state.revealed = false;
+        state.confidenceGuess = null;
+        state.helpResponse = null;
+        renderCard(); renderHeader();
+      });
+    });
+  }
+}
+
+window.askHaiku = async function(fiszkaId) {
+  if (!state.privacyWarningSeen) {
+    if (!confirm("Wysłać pytanie do Anthropic (Haiku)? OK = tak, Cancel = wracam.")) return;
+    state.privacyWarningSeen = true; saveState();
+  }
+  if (!window.matura || typeof window.matura.callClaude !== "function") {
+    showToast("Haiku niedostępny — otwórz w Cowork", "error"); return;
+  }
+  const f = FISZKI.find(x => x.id === fiszkaId);
+  if (!f) return;
+  state.helpLoading = true; renderCard();
+  try {
+    const prompt = "Jesteś korepetytorem matury polskiej. Uczeń nie pamięta tej fiszki:\n\nPytanie: " + f.q + "\nOdpowiedź: " + f.a + "\nHak: " + f.hak + "\n\nWytłumacz w 3-4 zdaniach DLACZEGO ta odpowiedź jest taka. Nawiązuj do epoki, kontekstu literackiego. Dodaj 1 dodatkowy sposób zapamiętania (mnemonik). Po polsku, konkretnie, bez wstępu.";
+    state.helpResponse = await window.matura.callClaude(prompt);
+  } catch (e) {
+    showToast(e.message || "Błąd", "error");
+  } finally {
+    state.helpLoading = false; renderCard();
+  }
+};
+
+window.newSession = function() {
+  state.currentIdx = 0;
+  state.sessionDone = 0;
+  state.sessionCorrect = 0;
+  state.revealed = false;
+  state.confidenceGuess = null;
+  state.helpResponse = null;
+  renderCard();
+};
+
+// Wire tabs + filter
+document.querySelectorAll(".tab").forEach(t => {
+  t.addEventListener("click", e => {
+    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+    e.target.classList.add("active");
+    state.mode = e.target.dataset.mode;
+    document.getElementById("filter-controls").style.display = state.mode === "filter" ? "block" : "none";
+    state.currentIdx = 0; state.sessionDone = 0; state.sessionCorrect = 0;
+    state.revealed = false; state.helpResponse = null;
+    renderCard(); renderHeader();
+  });
+});
+document.getElementById("tag-filter").addEventListener("change", e => {
+  state.filterTag = e.target.value;
+  state.currentIdx = 0; state.revealed = false;
+  renderCard();
+});
+
+setInterval(renderHeader, 60000);
+
+loadState();
+populateTagFilter();
+renderHeader();
+renderCard();
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined" || !window.matura) return;
+  const orig = window.matura.callClaude;
+  window.matura.callClaude = async function(prompt) {
+    try { return await orig(prompt); }
+    catch (e) {
+      if (e && (e.message === "MISSING_API_KEY" || e.message === "INVALID_API_KEY")) {
+        if (window.matura.showApiKeyModal) {
+          window.matura.showApiKeyModal(() => location.reload());
+        }
+      }
+      throw e;
+    }
+  };
+})();
+</script>
+
+</body>
+</html>

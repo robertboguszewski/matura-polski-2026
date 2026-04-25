@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://matura-polski-2026/sdd-audit/contracts/schemas.json",
+  "title": "Matura Polski 2026 — frozen state schemas v1",
+  "description": "Schema for all 4 artifacts. Spec-frozen 2026-04-25. Any change requires v2 bump (new storage key + migrate() step).",
+
+  "$defs": {
+    "Timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix epoch ms (Date.now())"
+    },
+
+    "GradeCriterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["punkty", "uzasadnienie"],
+      "properties": {
+        "punkty": { "type": "number" },
+        "uzasadnienie": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "RozprawkaGrade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "realizacja_tematu", "elementy_tworcze", "kompetencje_literackie",
+        "kompozycja", "styl", "jezyk", "ortografia",
+        "suma", "komentarz_ogolny", "trzy_mocne", "trzy_slabe", "jeden_mnemonik"
+      ],
+      "properties": {
+        "realizacja_tematu":     { "$ref": "#/$defs/GradeCriterion" },
+        "elementy_tworcze":      { "$ref": "#/$defs/GradeCriterion" },
+        "kompetencje_literackie":{ "$ref": "#/$defs/GradeCriterion" },
+        "kompozycja":            { "$ref": "#/$defs/GradeCriterion" },
+        "styl":                  { "$ref": "#/$defs/GradeCriterion" },
+        "jezyk":                 { "$ref": "#/$defs/GradeCriterion" },
+        "ortografia":            { "$ref": "#/$defs/GradeCriterion" },
+        "suma":                  { "type": "number", "minimum": 0, "maximum": 35 },
+        "komentarz_ogolny":      { "type": "string", "minLength": 1 },
+        "trzy_mocne":            { "type": "array", "items": { "type": "string" } },
+        "trzy_slabe":            { "type": "array", "items": { "type": "string" } },
+        "jeden_mnemonik":        { "type": "string", "minLength": 1 },
+        "_corrected":            { "type": "boolean", "description": "set true if parser auto-corrected suma" }
+      },
+      "examples": [{
+        "realizacja_tematu":     { "punkty": 4, "uzasadnienie": "Teza widoczna." },
+        "elementy_tworcze":      { "punkty": 2, "uzasadnienie": "Schematyczna." },
+        "kompetencje_literackie":{ "punkty": 10, "uzasadnienie": "Powierzchowne." },
+        "kompozycja":            { "punkty": 1, "uzasadnienie": "Przejścia abrupte." },
+        "styl":                  { "punkty": 2, "uzasadnienie": "Powtórzenia." },
+        "jezyk":                 { "punkty": 1, "uzasadnienie": "Błędy interpunkcji." },
+        "ortografia":            { "punkty": 1, "uzasadnienie": "OK." },
+        "suma": 21, "komentarz_ogolny": "Solidne 21/35.",
+        "trzy_mocne": ["Lalka", "Struktura", "Bez kolokwializmów"],
+        "trzy_slabe": ["Teza", "Cytaty", "Powtórzenia"],
+        "jeden_mnemonik": "PEEL nie PLOT."
+      }]
+    },
+
+    "RozprawkaState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "topic", "lectures", "paragraphs"],
+      "properties": {
+        "schemaVersion": { "type": "integer", "const": 1 },
+        "savedAt":       { "$ref": "#/$defs/Timestamp" },
+        "topic":         { "type": "string", "maxLength": 500 },
+        "lectures": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": { "type": "string" }
+        },
+        "paragraphs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["intro", "arg1", "arg2", "arg3", "conclusion"],
+          "properties": {
+            "intro":      { "type": "string" },
+            "arg1":       { "type": "string" },
+            "arg2":       { "type": "string" },
+            "arg3":       { "type": "string" },
+            "conclusion": { "type": "string" }
+          }
+        },
+        "feedback": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["intro", "arg1", "arg2", "arg3", "conclusion"],
+          "properties": {
+            "intro":      { "oneOf": [{"type": "null"}, {"$ref": "#/$defs/FeedbackEntry"}] },
+            "arg1":       { "oneOf": [{"type": "null"}, {"$ref": "#/$defs/FeedbackEntry"}] },
+            "arg2":       { "oneOf": [{"type": "null"}, {"$ref": "#/$defs/FeedbackEntry"}] },
+            "arg3":       { "oneOf": [{"type": "null"}, {"$ref": "#/$defs/FeedbackEntry"}] },
+            "conclusion": { "oneOf": [{"type": "null"}, {"$ref": "#/$defs/FeedbackEntry"}] }
+          }
+        },
+        "grade": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/RozprawkaGrade" }]
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["callTimestamps"],
+          "properties": {
+            "callTimestamps": { "type": "array", "items": { "$ref": "#/$defs/Timestamp" } }
+          }
+        },
+        "privacyWarningSeen": { "type": "boolean" }
+      }
+    },
+
+    "FeedbackEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "timestamp", "type"],
+      "properties": {
+        "text":      { "type": "string", "minLength": 1 },
+        "timestamp": { "$ref": "#/$defs/Timestamp" },
+        "type":      { "type": "string", "const": "paragraph" }
+      }
+    },
+
+    "FiszkaCardState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lastSeen", "level", "correct", "total", "dueAt"],
+      "properties": {
+        "lastSeen": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Timestamp" }] },
+        "level":    { "type": "integer", "minimum": 0, "maximum": 5 },
+        "correct":  { "type": "integer", "minimum": 0 },
+        "total":    { "type": "integer", "minimum": 0 },
+        "dueAt":    { "$ref": "#/$defs/Timestamp" }
+      }
+    },
+
+    "FiszkiState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cards", "streak", "totalAnswered", "totalCorrect"],
+      "properties": {
+        "cards": {
+          "type": "object",
+          "patternProperties": {
+            "^[a-z]{2}[0-9]{2}$": { "$ref": "#/$defs/FiszkaCardState" }
+          },
+          "additionalProperties": false
+        },
+        "streak": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["lastDay", "current"],
+          "properties": {
+            "lastDay": { "oneOf": [{ "type": "null" }, { "type": "string" }] },
+            "current": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "totalAnswered":     { "type": "integer", "minimum": 0 },
+        "totalCorrect":      { "type": "integer", "minimum": 0 },
+        "privacyWarningSeen":{ "type": "boolean" }
+      },
+      "examples": [{
+        "cards": {
+          "ep01": { "lastSeen": 1745522400000, "level": 2, "correct": 3, "total": 5, "dueAt": 1745781600000 }
+        },
+        "streak": { "lastDay": "Fri Apr 25 2026", "current": 7 },
+        "totalAnswered": 142, "totalCorrect": 98, "privacyWarningSeen": true
+      }]
+    },
+
+    "EgzaminatorState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["privacyWarningSeen"],
+      "properties": {
+        "privacyWarningSeen": { "type": "boolean" }
+      },
+      "examples": [{ "privacyWarningSeen": true }]
+    },
+
+    "EgzaminatorRuntimeState": {
+      "type": "object",
+      "description": "In-memory only, never persisted",
+      "additionalProperties": false,
+      "required": ["phase", "difficulty"],
+      "properties": {
+        "phase":      { "enum": ["setup","prep","speaking","qna","grading","done"] },
+        "difficulty": { "enum": ["easy","medium","hard"] },
+        "zestaw": {
+          "oneOf": [{ "type": "null" }, {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["jawne", "niejawne"],
+            "properties": {
+              "jawne": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "lektura", "pytanie"],
+                "properties": {
+                  "id": { "type": "integer", "minimum": 1 },
+                  "lektura": { "type": "string" },
+                  "pytanie": { "type": "string" }
+                }
+              },
+              "niejawne": { "type": "string" }
+            }
+          }]
+        },
+        "prepStartAt":   { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Timestamp" }] },
+        "prepDurationMs":{ "type": "integer", "const": 900000 },
+        "speechStartAt": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/Timestamp" }] },
+        "speechDurationMs": { "type": "integer", "const": 600000 },
+        "transcript": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["who", "body"],
+            "properties": {
+              "who":  { "enum": ["user", "commission"] },
+              "body": { "type": "string" },
+              "examinerStyle": { "enum": ["życzliwy", "sceptyczny", "ciekawski"] },
+              "examinerName":  { "type": "string" }
+            }
+          }
+        },
+        "currentInput": { "type": "string" },
+        "loading":      { "type": "boolean" },
+        "grade": {
+          "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/EgzaminatorGrade" }]
+        }
+      }
+    },
+
+    "EgzaminatorGrade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["komunikacyjna", "monolog", "rozmowa", "suma", "komentarz", "trzy_mocne", "trzy_slabe", "hak"],
+      "properties": {
+        "komunikacyjna": { "$ref": "#/$defs/GradeCriterion" },
+        "monolog":       { "$ref": "#/$defs/GradeCriterion" },
+        "rozmowa":       { "$ref": "#/$defs/GradeCriterion" },
+        "suma":          { "type": "number", "minimum": 0, "maximum": 30 },
+        "komentarz":     { "type": "string" },
+        "trzy_mocne":    { "type": "array", "items": { "type": "string" } },
+        "trzy_slabe":    { "type": "array", "items": { "type": "string" } },
+        "hak":           { "type": "string" },
+        "_corrected":    { "type": "boolean" }
+      },
+      "examples": [{
+        "komunikacyjna": { "punkty": 1,  "uzasadnienie": "Odpowiada na pytania jasno." },
+        "monolog":       { "punkty": 10, "uzasadnienie": "Argumentacja schematyczna, brak głębi." },
+        "rozmowa":       { "punkty": 7,  "uzasadnienie": "Częściowo pogłębia odpowiedzi." },
+        "suma": 18, "komentarz": "Solidne 18/30.",
+        "trzy_mocne": ["...","...","..."], "trzy_slabe": ["...","...","..."],
+        "hak": "Pamiętaj: 'cierpienie chrześcijańskie ma sens', nie 'jest ważne'."
+      }]
+    },
+
+    "DashboardState": {
+      "type": "object",
+      "description": "Dashboard does not persist any state. It only READS fiszki-matura-v1 via localStorage.getItem.",
+      "additionalProperties": false,
+      "properties": {}
+    }
+  },
+
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "rozprawka":   { "$ref": "#/$defs/RozprawkaState" },
+    "fiszki":      { "$ref": "#/$defs/FiszkiState" },
+    "egzaminator": { "$ref": "#/$defs/EgzaminatorState" },
+    "dashboard":   { "$ref": "#/$defs/DashboardState" }
+  }
+}
